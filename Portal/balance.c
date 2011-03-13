@@ -1506,6 +1506,26 @@ int shell(char *argument)
   }
 }
 
+
+//CloudAttest
+int do_replication()
+{
+	double num;
+	num=((double) rand())/RAND_MAX;
+	if(num > 0 && num <=prob)
+	{
+		return 1;
+	}
+	return 0;
+
+}
+
+//CloudAttest
+int get_replication_index(int num_grp_channels)
+{
+	return ((int)rand())%num_grp_channels;
+}
+
 char bindhost_address[FILENAMELEN];
 
 int main(int argc, char *argv[])
@@ -1520,6 +1540,9 @@ int main(int argc, char *argv[])
   struct stat buffer;
   struct sockaddr_storage cli_addr;
   struct sigaction usr1_action, chld_action;
+
+  //index for replication- CloudAttest
+  int rep_index;
 #ifdef BalanceBSD
 #else
   struct rlimit r;
@@ -1870,8 +1893,18 @@ int main(int argc, char *argv[])
       } else if (childpid == 0) {	// child process 
 	close(sockfd);			// close original socket 
 	// process the request: 
-
-	stream(newsockfd, groupindex, index, (char *) &cli_addr, clilen);
+	
+	
+	//CloudAttest
+	//DO Replication with Probability of 0.2
+	if(do_replication()==1)
+	{
+		while((rep_index=get_replication_index(grp_nchannels(common,groupindex)))==index);
+		//stream(newsockfd, groupindex, index, rep_index, (char *) &cli_addr, clilen);
+	
+	}
+	else
+		stream(newsockfd, groupindex, index, (char *) &cli_addr, clilen);
 	exit(EX_OK);
       }
     }
