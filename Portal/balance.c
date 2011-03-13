@@ -729,14 +729,16 @@ void chld_handler(int signo) {
 void *stream(int arg, int groupindex, int index, char *client_address,
 	     int client_address_size) {
   int startindex;
+  int rpl_index; //CloudAttest
   int sockfd;
+  int rpl_sockfd; //CloudAttest
   int clientfd;
   struct sigaction alrm_action;
-  struct sockaddr_in serv_addr;
+  struct sockaddr_in serv_addr, rpl_serv_addr; //CloudAttest Need to declare one more struture for holding the second connection.
 
   startindex = index;		// lets keep where we start...
   clientfd = arg;
-
+  rpl_index = index2;   //CloudAttest Get the index of the required replicated server -> say index2	
   for (;;) {
 
     if (debugflag) {
@@ -744,10 +746,22 @@ void *stream(int arg, int groupindex, int index, char *client_address,
 	      index);
       fflush(stderr);
     }
-
+    
+    //CloudAttest Getting socket descriptor by the required command. New Socket -> rpl_sockfd
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
       err_dump("can't open stream socket");
     }
+
+    if ((rpl_sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+      err_dump("can't open replicated stream socket");
+    }
+
+    //CloudAttest Set Socket Options -> for the particular socket descriptor. Should be replicated for the required socket descriptor rpl_sockfd	
+    (void) setsockopt(rpl_sockfd, SOL_SOCKET, SO_SNDBUF, &sockbufsize,
+      sizeof(sockbufsize));
+    (void) setsockopt(rpl_sockfd, SOL_SOCKET, SO_RCVBUF, &sockbufsize,
+      sizeof(sockbufsize));
+
 
     (void) setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &sockbufsize,
       sizeof(sockbufsize));
@@ -759,6 +773,7 @@ void *stream(int arg, int groupindex, int index, char *client_address,
      *  outgoing connections 
      */
 
+    //CloudAttest Required only for -B option variable option. To be tested if it can be ignored.
     if (outbindhost != NULL) {
       struct sockaddr_in outbind_addr;
       bzero((char *) &outbind_addr, sizeof(outbind_addr));
@@ -771,18 +786,34 @@ void *stream(int arg, int groupindex, int index, char *client_address,
     }
 
     b_readlock();
+    
     bzero((char *) &serv_addr, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_addr.s_addr =
 	chn_ipaddr(common, groupindex, index).s_addr;
     serv_addr.sin_port = htons(chn_port(common, groupindex, index));
+
+    //CloudAttest The following procedure is standard for creating socket at server side.
+    //CloudAttest Legacy function: The bzero() function shall place n zero-valued bytes in the area pointed to by s. 
+    bzero((char *) &rpl_serv_addr, sizeof(rpl_serv_addr));
+    rpl_serv_addr.sin_family = AF_INET;
+    rpl_serv_addr.sin_addr.s_addr =
+        chn_ipaddr(common, groupindex, index2).s_addr;
+    rpl_serv_addr.sin_port = htons(chn_port(common, groupindex, index2));
+
     b_unlock();
 
+    //CloudAttest Alarm System -> Error System Ignored for now.
     alrm_action.sa_handler = alrm_handler;
     alrm_action.sa_flags = 0;	// don't restart !
     sigemptyset(&alrm_action.sa_mask);
     sigaction(SIGALRM, &alrm_action, NULL);
     alarm(connect_timeout);
+
+    //CloudAttest Code for connecting socket to replicated serv_addr goes here.
+    if (connect(rpl_sockfd, (struct sockaddr *) &rpl_serv_addr, sizeof(rpl_serv_addr)) < 0) {
+    fprintf(stderr, "Unable to connect the replicated stream socket.");
+    }
 
     if (connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
       if (debugflag) {
@@ -931,6 +962,9 @@ void *stream(int arg, int groupindex, int index, char *client_address,
       stream2(clientfd, sockfd, groupindex, index);
       // stream2 bekommt den Channel-Index mit
       // stream2 never returns, but just in case...
+
+      //CloudAttest Connect the replicated socket using Stream2
+      stream2(clientfd, rpl_sockfd, groupindex, index2);
       break;
     }
   }
@@ -1806,40 +1840,6 @@ int main(int argc, char *argv[])
 		if (chn_status(common, groupindex, index) == 1 &&
 		    (chn_maxc(common, groupindex, index) == 0 ||
 		     (chn_c(common, groupindex, index) <
-		      chn_maxc(common, groupindex, index)))
-		    ) {
-		  if (debugflag)
-		    fprintf(stderr, "channel choosen: %d in group %d.\n",
-			    index, groupindex);
-		  break;	// channel found
-		}
-	      }
-
-	    } else {
-	      if (debugflag)
-		fprintf(stderr,
-			"no valid channel in group %d. Failover?\n",
-			groupindex);
-	      index = -1;
-	    }
-	    break;
-	  }
-	} else {
-	  err_dump("PANIC: invalid group type");
-	}
-      }
-
-      // Hier fallen wir "raus" mit dem index in der momentanen Gruppe, oder -1
-      // wenn nicht moeglich in dieser Gruppe
-
-      grp_current(common, groupindex) = index;
-      grp_current(common, groupindex)++;	// current index dieser gruppe wieder null, wenn vorher ungueltig (-1)
-
-      // Der index der gruppe wird neu berechnet und gespeichert, "index" ist immer noch 
-      // -1 oder der zu waehlende index...
-
-      if (grp_current(common, groupindex) >=
-	  grp_nchannels(common, groupindex)) {
 	grp_current(common, groupindex) = 0;
       }
 
