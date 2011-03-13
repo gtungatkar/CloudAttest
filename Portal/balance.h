@@ -60,6 +60,9 @@
 #define INADDR_NONE ((unsigned long) -1)
 #endif
 
+
+//PROBABILITY For Replication : Sagar Sane
+#define Prob 0.2
 #define MAXTXSIZE 	(32*1024)
 #define FILENAMELEN 	1024
 /*
