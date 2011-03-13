@@ -610,6 +610,37 @@ int forward(int fromfd, int tofd, int groupindex, int channelindex)
   }
   return (0);
 }
+int forward_rep(int fromfd, int tofd, int replfd, int groupindex, 
+                int channelindex, int replindex)
+{
+  ssize_t rc;
+  unsigned char buffer[MAXTXSIZE];
+
+  rc = read(fromfd, buffer, MAXTXSIZE);
+
+  if (packetdump) {
+    printf("-> %d\n", (int) rc);
+    print_packet(buffer, rc);
+  }
+
+  if (rc <= 0) {
+    return (-1);
+  } else {
+    if (writen(tofd, buffer, rc) != rc) {
+      return (-1);
+    }
+    if (writen(replfd, buffer, rc) != rc) {
+      //log FAILED TO REPLICATE
+    }
+    c_writelock(groupindex, channelindex);
+    chn_bsent(common, groupindex, channelindex) += rc;
+    c_unlock(groupindex, channelindex);
+    c_writelock(groupindex, replindex);
+    chn_bsent(common, groupindex, replindex) += rc;
+    c_unlock(groupindex, replindex);
+  }
+  return (0);
+}
 
 int backward(int fromfd, int tofd, int groupindex, int channelindex)
 {
@@ -700,6 +731,101 @@ void stream2(int clientfd, int serverfd, int groupindex, int channelindex)
 	break;
       }
     } else {
+      if (backward(serverfd, clientfd, groupindex, channelindex) < 0) {
+	break;
+      }
+    }
+  }
+  c_writelock(groupindex, channelindex);
+  chn_c(common, groupindex, channelindex) -= 1;
+  c_unlock(groupindex, channelindex);
+  exit(EX_OK);
+}
+
+  /*CloudAttest*/
+void stream2_rep(int clientfd, int serverfd, int replfd, int groupindex, 
+                int cannelindex, int replindex)
+{
+  fd_set readfds;
+  int fdset_width;
+  int sr;
+  int optone = 1;
+  int largerfd = 0;
+  if(replfd > serverfd)
+          largerfd = replfd;
+  else
+          largerfd = serverfd;
+
+  fdset_width = ((clientfd > largerfd) ? clientfd : largerfd) + 1;
+
+  /* failure is acceptable */
+  (void) setsockopt(serverfd, IPPROTO_TCP, TCP_NODELAY,
+    (char *)&optone, (socklen_t)sizeof(optone));
+  (void) setsockopt(clientfd, IPPROTO_TCP, TCP_NODELAY,
+    (char *)&optone, (socklen_t)sizeof(optone));
+  (void) setsockopt(serverfd, SOL_SOCKET, SO_KEEPALIVE,
+    (char *)&optone, (socklen_t)sizeof(optone));
+  (void) setsockopt(clientfd, SOL_SOCKET, SO_KEEPALIVE,
+    (char *)&optone, (socklen_t)sizeof(optone));
+
+  /*CloudAttest*/
+  (void) setsockopt(clientfd, SOL_SOCKET, SO_KEEPALIVE,
+    (char *)&optone, (socklen_t)sizeof(optone));
+  (void) setsockopt(serverfd, SOL_SOCKET, SO_KEEPALIVE,
+    (char *)&optone, (socklen_t)sizeof(optone));
+  /*CloudAttest*/
+
+  for (;;) {
+
+    FD_ZERO(&readfds);
+    FD_SET(clientfd, &readfds);
+    FD_SET(serverfd, &readfds);
+
+  /*CloudAttest*/
+    FD_SET(replfd, &readfds);
+    /*
+     * just in case this system modifies the timeout values,
+     * refresh the values from a saved copy of them.
+     */
+    sel_tmout = save_tmout;
+
+    for (;;) {
+      if (sel_tmout.tv_sec || sel_tmout.tv_usec) {
+	sr = select(fdset_width, &readfds, NULL, NULL, &sel_tmout);
+      } else {
+	sr = select(fdset_width, &readfds, NULL, NULL, NULL);
+      }
+      if ((save_tmout.tv_sec || save_tmout.tv_usec) && !sr) {
+	c_writelock(groupindex, channelindex);
+	chn_c(common, groupindex, channelindex) -= 1;
+	c_unlock(groupindex, channelindex);
+	fprintf(stderr, "timed out after %d seconds\n",
+		(int) save_tmout.tv_sec);
+	exit(EX_UNAVAILABLE);
+      }
+      if (sr < 0 && errno != EINTR) {
+	c_writelock(groupindex, channelindex);
+	chn_c(common, groupindex, channelindex) -= 1;
+	c_unlock(groupindex, channelindex);
+	err_dump("select error");
+      }
+      if (sr > 0)
+	break;
+    }
+
+    if (FD_ISSET(clientfd, &readfds)) {
+      if (forward_rep(clientfd, serverfd, groupindex, channelindex, replindex) < 0) {
+	break;
+      }
+    }
+  /*CloudAttest*/
+    else if (FD_ISSET(replfd, &readfds)) {
+            //backward path from replicated server back to portal
+            //Major logic of hash/signature and comparison between replicated
+            //and actual response should go here.
+           
+    }
+    else {
       if (backward(serverfd, clientfd, groupindex, channelindex) < 0) {
 	break;
       }
