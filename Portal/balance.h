@@ -62,7 +62,7 @@
 
 
 //PROBABILITY For Replication : Sagar Sane
-#define Prob 0.2
+#define Prob 1
 #define MAXTXSIZE 	(32*1024)
 #define FILENAMELEN 	1024
 /*

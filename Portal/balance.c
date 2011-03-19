@@ -610,15 +610,18 @@ int forward(int fromfd, int tofd, int groupindex, int channelindex)
   }
   return (0);
 }
+
+
 int forward_rep(int fromfd, int tofd, int replfd, int groupindex, 
                 int channelindex, int replindex)
 {
   ssize_t rc;
   unsigned char buffer[MAXTXSIZE];
-
+	printf("\nIn forward rep\n");
   rc = read(fromfd, buffer, MAXTXSIZE);
 
-  if (packetdump) {
+//  if (packetdump) {
+  if(0) {
     printf("-> %d\n", (int) rc);
     print_packet(buffer, rc);
   }
@@ -629,9 +632,20 @@ int forward_rep(int fromfd, int tofd, int replfd, int groupindex,
     if (writen(tofd, buffer, rc) != rc) {
       return (-1);
     }
+    else
+	{
+		printf("\nORIGINAL DUMP\n");
+	    print_packet(buffer, rc);
+	}
     if (writen(replfd, buffer, rc) != rc) {
       //log FAILED TO REPLICATE
+	printf("ERROR in replication\n");
     }
+    else
+	{
+		printf("\nREPLICATED DUMP\n");
+	    print_packet(buffer, rc);
+	}
     c_writelock(groupindex, channelindex);
     chn_bsent(common, groupindex, channelindex) += rc;
     c_unlock(groupindex, channelindex);
@@ -642,6 +656,23 @@ int forward_rep(int fromfd, int tofd, int replfd, int groupindex,
   return (0);
 }
 
+int backward_rep(int fromfd, int tofd, int groupindex, int channelindex)
+{
+  ssize_t rc;
+  unsigned char buffer[MAXTXSIZE];
+
+  rc = read(fromfd, buffer, MAXTXSIZE);
+
+  if (1) {
+    printf("-< %d\n", (int) rc);
+	printf("in REPLICATE#D RESPONSE:\n");
+    print_packet(buffer, rc);
+  }
+	if(rc <= 0)
+		return -1;
+ return 0;
+}
+
 int backward(int fromfd, int tofd, int groupindex, int channelindex)
 {
   ssize_t rc;
@@ -649,8 +680,9 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
 
   rc = read(fromfd, buffer, MAXTXSIZE);
 
-  if (packetdump) {
+  if (1) {
     printf("-< %d\n", (int) rc);
+	printf("in ORIGINAL RESPONSE:\n");
     print_packet(buffer, rc);
   }
 
@@ -812,25 +844,30 @@ void stream2_rep(int clientfd, int serverfd, int replfd, int groupindex,
       if (sr > 0)
 	break;
     }
+	printf("replfd = %d serverfd=%d client fd=%d \n", replfd, serverfd, clientfd);
 
     if (FD_ISSET(clientfd, &readfds)) {
-      if (forward(clientfd, serverfd, groupindex, channelindex) < 0) {
-	break;
-      }
+        printf("\ncalling forward_repl\n");    
+	if (forward_rep(clientfd, serverfd, replfd, groupindex, channelindex, replindex) < 0) {
+                    break;
+            }
     }
   /*CloudAttest*/
     else if (FD_ISSET(replfd, &readfds)) {
+      if (backward_rep(replfd, clientfd, groupindex, channelindex) < 0) {
             //backward path from replicated server back to portal
             //Major logic of hash/signature and comparison between replicated
             //and actual response should go here.
-            if (forward_rep(clientfd, serverfd, replfd, groupindex, channelindex, replindex) < 0) {
-                    break;
-            }
+	break;
            
     }
-    else {
+	printf("Replicated RESPONSE:\n");
+	}
+    if (FD_ISSET(serverfd, &readfds)){
+	printf("getting original response\n");
       if (backward(serverfd, clientfd, groupindex, channelindex) < 0) {
 	break;
+	
       }
     }
   }
@@ -865,7 +902,7 @@ void *stream_rep(int arg, int groupindex, int index, int index2, char *client_ad
   int clientfd;
   struct sigaction alrm_action;
   struct sockaddr_in serv_addr, rpl_serv_addr; //CloudAttest Need to declare one more struture for holding the second connection.
-
+	printf("stream rep\n\n");
   startindex = index;		// lets keep where we start...
   clientfd = arg;
   rpl_index = index2;   //CloudAttest Get the index of the required replicated server -> say index2	
@@ -1094,6 +1131,7 @@ void *stream_rep(int arg, int groupindex, int index, int index2, char *client_ad
       // stream2 never returns, but just in case...
 
       //CloudAttest Connect the replicated socket using Stream2
+	printf("calling stream2_rep\n");
       stream2_rep(clientfd, sockfd, rpl_sockfd, groupindex, index, index2);
       break;
     }
@@ -1114,6 +1152,7 @@ void *stream(int arg, int groupindex, int index, char *client_address,
 
   startindex = index;		// lets keep where we start...
   clientfd = arg;
+  printf("In stream..NO REPL\n\n");
 
   for (;;) {
 
@@ -1933,6 +1972,7 @@ int main(int argc, char *argv[])
   connect_timeout = DEFAULTTIMEOUT;
   initialize_release_variables();
 
+	fprintf(stdout, "in mainnnnn\n");
   while ((c = getopt(argc, argv, "c:b:B:t:T:adfpiHM6")) != EOF) {
     switch (c) {
     case '6':
@@ -2282,11 +2322,15 @@ int main(int argc, char *argv[])
 	if(do_replication()==1)
 	{
 		while((rep_index=get_replication_index(grp_nchannels(common,groupindex)))==index);
-		//stream(newsockfd, groupindex, index, rep_index, (char *) &cli_addr, clilen);
+		printf("calling stream_rep: Index: %d    Rep_Index: %d\n",index,rep_index);
+
+		stream_rep(newsockfd, groupindex, index, rep_index, (char *) &cli_addr, clilen);
 	
 	}
-	else
-		stream(newsockfd, groupindex, index, 0,(char *) &cli_addr, clilen);  //CloudAttest - No change to be made , index2 = 0
+	else{
+		fprintf(stdout, "calling regular stream\n");
+		stream(newsockfd, groupindex, index, (char *) &cli_addr, clilen);  //CloudAttest - No change to be made , index2 = 0
+	}
 	exit(EX_OK);
       }
     }
