@@ -855,7 +855,8 @@ void chld_handler(int signo) {
  * a channel in a group is selected and we try to establish a connection 
  */
 
-void *stream(int arg, int groupindex, int index, char *client_address,
+//CloudAttest - adding argument index2 to function call
+void *stream(int arg, int groupindex, int index, int index2, char *client_address,
 	     int client_address_size) {
   int startindex;
   int rpl_index; //CloudAttest
@@ -1992,9 +1993,43 @@ int main(int argc, char *argv[])
 		if (chn_status(common, groupindex, index) == 1 &&
 		    (chn_maxc(common, groupindex, index) == 0 ||
 		     (chn_c(common, groupindex, index) <
-	grp_current(common, groupindex) = 0;
+		   chn_maxc(common, groupindex, index))) //CloudAttest Made a change here... added this if condition
+		   ){//grp_current(common, groupindex) = 0;//CloudAttest ?? What is this change ?? major change here from the original main? 
+		   if (debugflag)
+                    fprintf(stderr, "channel choosen: %d in group %d.\n",
+                            index, groupindex);
+                  break;        // channel found
+                }
+              }
+
+            } else {
+              if (debugflag)
+                fprintf(stderr,
+                        "no valid channel in group %d. Failover?\n",
+                        groupindex);
+              index = -1;
+            }
+            break;
+          }
+        } else {
+          err_dump("PANIC: invalid group type");
+        }
       }
 
+      // Hier fallen wir "raus" mit dem index in der momentanen Gruppe, oder -1
+      // wenn nicht moeglich in dieser Gruppe
+
+      grp_current(common, groupindex) = index;
+      grp_current(common, groupindex)++;        // current index dieser gruppe wieder null, wenn vorher ungueltig (-1)
+
+      // Der index der gruppe wird neu berechnet und gespeichert, "index" ist immer noch 
+      // -1 oder der zu waehlende index...
+
+      if (grp_current(common, groupindex) >=
+          grp_nchannels(common, groupindex)) {
+        grp_current(common, groupindex) = 0;
+      }
+      //CloudAttest problem with braces :-/
       if (index >= 0) {
 	chn_c(common, groupindex, index)++;	// we promise a successful connection 
 	chn_tc(common, groupindex, index)++;	// also incrementing the total count 
@@ -2019,10 +2054,10 @@ int main(int argc, char *argv[])
 	if (debugflag) {
 	  fprintf(stderr, "fork error\n");
 	}
-      } else if (childpid == 0) {	// child process 
+      } else if (childpid == 0){ 	// child process 
 	close(sockfd);			// close original socket 
 	// process the request: 
-	
+	//}	
 	
 	//CloudAttest
 	//DO Replication with Probability of 0.2
@@ -2033,11 +2068,11 @@ int main(int argc, char *argv[])
 	
 	}
 	else
-		stream(newsockfd, groupindex, index, (char *) &cli_addr, clilen);
+		stream(newsockfd, groupindex, index, 0,(char *) &cli_addr, clilen);  //CloudAttest - No change to be made , index2 = 0
 	exit(EX_OK);
       }
     }
 
     close(newsockfd);		// parent process 
-  }
+ }
 }
