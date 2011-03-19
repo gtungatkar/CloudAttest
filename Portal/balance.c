@@ -744,7 +744,7 @@ void stream2(int clientfd, int serverfd, int groupindex, int channelindex)
 
   /*CloudAttest*/
 void stream2_rep(int clientfd, int serverfd, int replfd, int groupindex, 
-                int cannelindex, int replindex)
+                int channelindex, int replindex)
 {
   fd_set readfds;
   int fdset_width;
@@ -814,7 +814,7 @@ void stream2_rep(int clientfd, int serverfd, int replfd, int groupindex,
     }
 
     if (FD_ISSET(clientfd, &readfds)) {
-      if (forward_rep(clientfd, serverfd, groupindex, channelindex, replindex) < 0) {
+      if (forward(clientfd, serverfd, groupindex, channelindex) < 0) {
 	break;
       }
     }
@@ -823,6 +823,9 @@ void stream2_rep(int clientfd, int serverfd, int replfd, int groupindex,
             //backward path from replicated server back to portal
             //Major logic of hash/signature and comparison between replicated
             //and actual response should go here.
+            if (forward_rep(clientfd, serverfd, replfd, groupindex, channelindex, replindex) < 0) {
+                    break;
+            }
            
     }
     else {
@@ -1638,7 +1641,7 @@ int do_replication()
 {
 	double num;
 	num=((double) rand())/RAND_MAX;
-	if(num > 0 && num <=prob)
+	if(num > 0 && num <=Prob)
 	{
 		return 1;
 	}
