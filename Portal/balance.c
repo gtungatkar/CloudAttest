@@ -610,15 +610,18 @@ int forward(int fromfd, int tofd, int groupindex, int channelindex)
   }
   return (0);
 }
+
+
 int forward_rep(int fromfd, int tofd, int replfd, int groupindex, 
                 int channelindex, int replindex)
 {
   ssize_t rc;
   unsigned char buffer[MAXTXSIZE];
-
+	printf("\nIn forward rep\n");
   rc = read(fromfd, buffer, MAXTXSIZE);
 
-  if (packetdump) {
+//  if (packetdump) {
+  if(0) {
     printf("-> %d\n", (int) rc);
     print_packet(buffer, rc);
   }
@@ -629,9 +632,20 @@ int forward_rep(int fromfd, int tofd, int replfd, int groupindex,
     if (writen(tofd, buffer, rc) != rc) {
       return (-1);
     }
+    else
+	{
+		printf("\nORIGINAL DUMP\n");
+	    print_packet(buffer, rc);
+	}
     if (writen(replfd, buffer, rc) != rc) {
       //log FAILED TO REPLICATE
+	printf("ERROR in replication\n");
     }
+    else
+	{
+		printf("\nREPLICATED DUMP\n");
+	    print_packet(buffer, rc);
+	}
     c_writelock(groupindex, channelindex);
     chn_bsent(common, groupindex, channelindex) += rc;
     c_unlock(groupindex, channelindex);
@@ -642,6 +656,23 @@ int forward_rep(int fromfd, int tofd, int replfd, int groupindex,
   return (0);
 }
 
+int backward_rep(int fromfd, int tofd, int groupindex, int channelindex)
+{
+  ssize_t rc;
+  unsigned char buffer[MAXTXSIZE];
+
+  rc = read(fromfd, buffer, MAXTXSIZE);
+
+  if (1) {
+    printf("-< %d\n", (int) rc);
+	printf("in REPLICATE#D RESPONSE:\n");
+    print_packet(buffer, rc);
+  }
+	if(rc <= 0)
+		return -1;
+ return 0;
+}
+
 int backward(int fromfd, int tofd, int groupindex, int channelindex)
 {
   ssize_t rc;
@@ -649,8 +680,9 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
 
   rc = read(fromfd, buffer, MAXTXSIZE);
 
-  if (packetdump) {
+  if (1) {
     printf("-< %d\n", (int) rc);
+	printf("in ORIGINAL RESPONSE:\n");
     print_packet(buffer, rc);
   }
 
@@ -812,25 +844,30 @@ void stream2_rep(int clientfd, int serverfd, int replfd, int groupindex,
       if (sr > 0)
 	break;
     }
+	printf("replfd = %d serverfd=%d client fd=%d \n", replfd, serverfd, clientfd);
 
     if (FD_ISSET(clientfd, &readfds)) {
-      if (forward(clientfd, serverfd, groupindex, channelindex) < 0) {
-	break;
-      }
+        printf("\ncalling forward_repl\n");    
+	if (forward_rep(clientfd, serverfd, replfd, groupindex, channelindex, replindex) < 0) {
+                    break;
+            }
     }
   /*CloudAttest*/
     else if (FD_ISSET(replfd, &readfds)) {
+      if (backward_rep(replfd, clientfd, groupindex, channelindex) < 0) {
             //backward path from replicated server back to portal
             //Major logic of hash/signature and comparison between replicated
             //and actual response should go here.
-            if (forward_rep(clientfd, serverfd, replfd, groupindex, channelindex, replindex) < 0) {
-                    break;
-            }
+	break;
            
     }
-    else {
+	printf("Replicated RESPONSE:\n");
+	}
+    if (FD_ISSET(serverfd, &readfds)){
+	printf("getting original response\n");
       if (backward(serverfd, clientfd, groupindex, channelindex) < 0) {
 	break;
+	
       }
     }
   }
@@ -855,7 +892,75 @@ void chld_handler(int signo) {
  * a channel in a group is selected and we try to establish a connection 
  */
 
-void *stream(int arg, int groupindex, int index, char *client_address,
+//CloudAttest--
+void cloud_connect (int arg, int groupindex, int index) {
+
+   int startindex;
+ 
+  int sockfd;
+ 
+  int clientfd;
+ 
+  struct sockaddr_in serv_addr;
+      //  printf("stream rep\n\n");
+  startindex = index;           
+  clientfd = arg;
+  
+
+    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+      err_dump("can't open stream socket");
+    }
+
+  (void) setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &sockbufsize,
+      sizeof(sockbufsize));
+    (void) setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &sockbufsize,
+      sizeof(sockbufsize));
+
+  b_readlock();
+
+    bzero((char *) &serv_addr, sizeof(serv_addr));
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_addr.s_addr =
+        chn_ipaddr(common, groupindex, index).s_addr;
+    serv_addr.sin_port = htons(chn_port(common, groupindex, index));
+
+ b_unlock();
+
+  if (connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
+	// Error handler
+  }
+
+  stream2(clientfd, sockfd, groupindex, index);
+  
+
+
+} 
+
+
+//CloudAttest - Parse Response Packet Function
+char * parse_response_packet(char *packet){
+	char *needle;
+	needle=strstr(packet,"Content-Type:"); //get the pointer to 'Content-Type' in *packet
+	if(needle!=NULL){
+		
+		while(*needle!='\n')
+			needle++;
+		while(isspace(*needle)) //skip the spaces
+			needle++;
+		return *needle;
+	}
+	return NULL;
+}
+
+
+//CloudAttest - Check for Request Head
+unsigned char check_request_head(char *packet){
+	if(strstr(packet,"HTTP"))
+		return 1;
+	return 0;
+}
+//CloudAttest - adding argument index2 to function call
+void *stream_rep(int arg, int groupindex, int index, int index2, char *client_address,
 	     int client_address_size) {
   int startindex;
   int rpl_index; //CloudAttest
@@ -864,7 +969,7 @@ void *stream(int arg, int groupindex, int index, char *client_address,
   int clientfd;
   struct sigaction alrm_action;
   struct sockaddr_in serv_addr, rpl_serv_addr; //CloudAttest Need to declare one more struture for holding the second connection.
-
+	printf("stream rep\n\n");
   startindex = index;		// lets keep where we start...
   clientfd = arg;
   rpl_index = index2;   //CloudAttest Get the index of the required replicated server -> say index2	
@@ -1088,12 +1193,13 @@ void *stream(int arg, int groupindex, int index, char *client_address,
 
       // everything's fine ... 
 
-      stream2(clientfd, sockfd, groupindex, index);
+      //stream2(clientfd, sockfd, groupindex, index);
       // stream2 bekommt den Channel-Index mit
       // stream2 never returns, but just in case...
 
       //CloudAttest Connect the replicated socket using Stream2
-      stream2(clientfd, rpl_sockfd, groupindex, index2);
+	printf("calling stream2_rep\n");
+      stream2_rep(clientfd, sockfd, rpl_sockfd, groupindex, index, index2);
       break;
     }
   }
@@ -1101,6 +1207,225 @@ void *stream(int arg, int groupindex, int index, char *client_address,
   close(sockfd);
   exit(EX_OK);
 }
+
+//CloudAttest --- The original stream function
+void *stream(int arg, int groupindex, int index, char *client_address,
+	     int client_address_size) {
+  int startindex;
+  int sockfd;
+  int clientfd;
+  struct sigaction alrm_action;
+  struct sockaddr_in serv_addr;
+
+  startindex = index;		// lets keep where we start...
+  clientfd = arg;
+  printf("In stream..NO REPL\n\n");
+
+  for (;;) {
+
+    if (debugflag) {
+      fprintf(stderr, "trying group %d channel %d ... ", groupindex,
+	      index);
+      fflush(stderr);
+    }
+
+    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+      err_dump("can't open stream socket");
+    }
+
+    (void) setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &sockbufsize,
+      sizeof(sockbufsize));
+    (void) setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &sockbufsize,
+      sizeof(sockbufsize));
+
+    /*
+     *  if -B is specified, balance tries to bind to it even on
+     *  outgoing connections 
+     */
+
+    if (outbindhost != NULL) {
+      struct sockaddr_in outbind_addr;
+      bzero((char *) &outbind_addr, sizeof(outbind_addr));
+      outbind_addr.sin_family = AF_INET;
+      setipaddress(&outbind_addr.sin_addr, outbindhost);
+      if (bind
+	  (sockfd, (struct sockaddr *) &outbind_addr,
+	   sizeof(outbind_addr)) < 0) {
+      }
+    }
+
+    b_readlock();
+    bzero((char *) &serv_addr, sizeof(serv_addr));
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_addr.s_addr =
+	chn_ipaddr(common, groupindex, index).s_addr;
+    serv_addr.sin_port = htons(chn_port(common, groupindex, index));
+    b_unlock();
+
+    alrm_action.sa_handler = alrm_handler;
+    alrm_action.sa_flags = 0;	// don't restart !
+    sigemptyset(&alrm_action.sa_mask);
+    sigaction(SIGALRM, &alrm_action, NULL);
+    alarm(connect_timeout);
+
+    if (connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
+      if (debugflag) {
+	if (errno == EINTR) {
+	  fprintf(stderr, "timeout group %d channel %d\n", groupindex,
+		  index);
+	} else {
+	  fprintf(stderr, "connection refused group %d channel %d\n",
+		  groupindex, index);
+	}
+      }
+
+      /* here we've received an error (either 'timeout' or 'connection refused')
+       * let's start some magical failover mechanisms 
+       */
+
+      c_writelock(groupindex, index);
+      chn_c(common, groupindex, index)--;
+      if(autodisable) {
+	if(chn_status(common, groupindex, index) != 0) {
+	  if(foreground) {
+	    fprintf(stderr, "connection failed group %d channel %d\n", groupindex, index);
+	    fprintf(stderr, "%s:%d needs to be enabled manually using balance -i after the problem is solved\n", inet_ntoa(serv_addr.sin_addr), ntohs(serv_addr.sin_port));
+	  } else {
+	      syslog(LOG_NOTICE,"connection failed group %d channel %d", groupindex, index);
+	      syslog(LOG_NOTICE,"%s:%d needs to be enabled manually using balance -i after the problem is solved", inet_ntoa(serv_addr.sin_addr), ntohs(serv_addr.sin_port));
+	  }
+	  chn_status(common, groupindex, index) = 0;
+	}
+      }
+      c_unlock(groupindex, index);
+
+      b_readlock();
+      for (;;) {
+	for (;;) {
+	  if (grp_type(common, groupindex) == GROUP_RR || hashfailover == 1) {
+	    index++;
+	    if (index >= grp_nchannels(common, groupindex)) {
+	      index = 0;
+	    }
+	    if (index == startindex) {
+	      index = -1;	// Giveup 
+	      break;
+	    }
+	    if (chn_status(common, groupindex, index) == 1 &&
+		(chn_maxc(common, groupindex, index) == 0 ||
+		 (chn_c(common, groupindex, index) <
+		  chn_maxc(common, groupindex, index)))) {
+	      break;		// new index found 
+	    } else {
+	      continue;
+	    }
+	  } else if (grp_type(common, groupindex) == GROUP_HASH) {
+
+	    // If the current group is type hash, we giveup immediately 
+	    index = -1;
+	    break;
+	  } else {
+	    err_dump("PANIC: invalid group in stream()");
+	  }
+	}
+
+	if (index >= 0) {
+	  // neuer index in groupindex-group found...
+	  break;
+	} else {
+	again:
+	  groupindex++;
+	  if (groupindex >= MAXGROUPS) {
+	    // giveup, index=-1.
+	    break;
+	  } else {
+	    if (grp_type(common, groupindex) == GROUP_RR) {
+
+	      if (grp_nchannels(common, groupindex) > 0) {
+		index = grp_current(common, groupindex);
+		startindex = index;	// This fixes the "endless loop error"
+					// with all hosts being down and one
+					// in the last group... (from Anthony Baxter) 
+	      } else {
+		goto again;
+	      }
+	      break;
+	    } else if (grp_type(common, groupindex) == GROUP_HASH) {
+	      unsigned int uindex;
+	      uindex = hash_fold((unsigned char*) &(((struct sockaddr_in6 *) &client_address)->sin6_addr), client_address_size);
+
+	      if (debugflag) {
+		fprintf(stderr, "HASH-method: fold returns %u\n", uindex);
+              }
+
+	      index = uindex % grp_nchannels(common, groupindex);
+	      if (debugflag)
+		fprintf(stderr, "modulo %d gives %d\n",
+			grp_nchannels(common, groupindex), index);
+
+	      if (chn_status(common, groupindex, index) == 1 &&
+		  (chn_maxc(common, groupindex, index) == 0 ||
+		   (chn_c(common, groupindex, index) <
+		    chn_maxc(common, groupindex, index)))
+		  ) {
+		break;
+	      } else {
+		goto again;	// next group !
+	      }
+	    } else {
+	      err_dump("PANIC: invalid group in stream()");
+	    }
+	  }
+	}
+      }
+      // we drop out here with a new index
+
+      b_unlock();
+
+      if (index >= 0) {
+	// lets try it again 
+	close(sockfd);
+	c_writelock(groupindex, index);
+	chn_c(common, groupindex, index) += 1;
+	chn_tc(common, groupindex, index) += 1;
+	c_unlock(groupindex, index);
+	continue;
+      } else {
+	break;
+      }
+
+    } else {
+      alarm(0);			// Cancel the alarm since we successfully connected
+      if (debugflag) {
+	fprintf(stderr, "connect to channel %d successful\n", index);
+      }
+      // this prevents the 'channel 2 overload problem'
+
+      b_writelock();
+      grp_current(common, groupindex) = index;
+      grp_current(common, groupindex)++;
+      if (grp_current(common, groupindex) >=
+	  grp_nchannels(common, groupindex)) {
+	grp_current(common, groupindex) = 0;
+      }
+      b_unlock();
+
+      // everything's fine ... 
+
+      stream2(clientfd, sockfd, groupindex, index);
+      // stream2 bekommt den Channel-Index mit
+      // stream2 never returns, but just in case...
+      break;
+    }
+  }
+
+  close(sockfd);
+  exit(EX_OK);
+}
+
+
+
+
 
 static
 void initialize_release_variables(void)
@@ -1714,6 +2039,7 @@ int main(int argc, char *argv[])
   connect_timeout = DEFAULTTIMEOUT;
   initialize_release_variables();
 
+	fprintf(stdout, "in mainnnnn\n");
   while ((c = getopt(argc, argv, "c:b:B:t:T:adfpiHM6")) != EOF) {
     switch (c) {
     case '6':
@@ -1992,9 +2318,43 @@ int main(int argc, char *argv[])
 		if (chn_status(common, groupindex, index) == 1 &&
 		    (chn_maxc(common, groupindex, index) == 0 ||
 		     (chn_c(common, groupindex, index) <
-	grp_current(common, groupindex) = 0;
+		   chn_maxc(common, groupindex, index))) //CloudAttest Made a change here... added this if condition
+		   ){//grp_current(common, groupindex) = 0;//CloudAttest ?? What is this change ?? major change here from the original main? 
+		   if (debugflag)
+                    fprintf(stderr, "channel choosen: %d in group %d.\n",
+                            index, groupindex);
+                  break;        // channel found
+                }
+              }
+
+            } else {
+              if (debugflag)
+                fprintf(stderr,
+                        "no valid channel in group %d. Failover?\n",
+                        groupindex);
+              index = -1;
+            }
+            break;
+          }
+        } else {
+          err_dump("PANIC: invalid group type");
+        }
       }
 
+      // Hier fallen wir "raus" mit dem index in der momentanen Gruppe, oder -1
+      // wenn nicht moeglich in dieser Gruppe
+
+      grp_current(common, groupindex) = index;
+      grp_current(common, groupindex)++;        // current index dieser gruppe wieder null, wenn vorher ungueltig (-1)
+
+      // Der index der gruppe wird neu berechnet und gespeichert, "index" ist immer noch 
+      // -1 oder der zu waehlende index...
+
+      if (grp_current(common, groupindex) >=
+          grp_nchannels(common, groupindex)) {
+        grp_current(common, groupindex) = 0;
+      }
+      //CloudAttest problem with braces :-/
       if (index >= 0) {
 	chn_c(common, groupindex, index)++;	// we promise a successful connection 
 	chn_tc(common, groupindex, index)++;	// also incrementing the total count 
@@ -2019,25 +2379,29 @@ int main(int argc, char *argv[])
 	if (debugflag) {
 	  fprintf(stderr, "fork error\n");
 	}
-      } else if (childpid == 0) {	// child process 
+      } else if (childpid == 0){ 	// child process 
 	close(sockfd);			// close original socket 
 	// process the request: 
-	
+	//}	
 	
 	//CloudAttest
 	//DO Replication with Probability of 0.2
 	if(do_replication()==1)
 	{
 		while((rep_index=get_replication_index(grp_nchannels(common,groupindex)))==index);
-		//stream(newsockfd, groupindex, index, rep_index, (char *) &cli_addr, clilen);
+		printf("calling stream_rep: Index: %d    Rep_Index: %d\n",index,rep_index);
+
+		stream_rep(newsockfd, groupindex, index, rep_index, (char *) &cli_addr, clilen);
 	
 	}
-	else
-		stream(newsockfd, groupindex, index, (char *) &cli_addr, clilen);
+	else{
+		fprintf(stdout, "calling regular stream\n");
+		stream(newsockfd, groupindex, index, (char *) &cli_addr, clilen);  //CloudAttest - No change to be made , index2 = 0
+	}
 	exit(EX_OK);
       }
     }
 
     close(newsockfd);		// parent process 
-  }
+ }
 }
