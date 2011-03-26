@@ -911,9 +911,9 @@ void cloud_connect (int arg, int groupindex, int index) {
       err_dump("can't open stream socket");
     }
 
-  (void) setsockopt(rpl_sockfd, SOL_SOCKET, SO_SNDBUF, &sockbufsize,
+  (void) setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &sockbufsize,
       sizeof(sockbufsize));
-    (void) setsockopt(rpl_sockfd, SOL_SOCKET, SO_RCVBUF, &sockbufsize,
+    (void) setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &sockbufsize,
       sizeof(sockbufsize));
 
   b_readlock();
@@ -931,7 +931,7 @@ void cloud_connect (int arg, int groupindex, int index) {
   }
 
   stream2(clientfd, sockfd, groupindex, index);
-  break;
+  
 
 
 } 
