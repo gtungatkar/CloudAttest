@@ -892,6 +892,51 @@ void chld_handler(int signo) {
  * a channel in a group is selected and we try to establish a connection 
  */
 
+//CloudAttest--
+void cloud_connect (int arg, int groupindex, int index) {
+
+   int startindex;
+ 
+  int sockfd;
+ 
+  int clientfd;
+ 
+  struct sockaddr_in serv_addr;
+      //  printf("stream rep\n\n");
+  startindex = index;           
+  clientfd = arg;
+  
+
+    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+      err_dump("can't open stream socket");
+    }
+
+  (void) setsockopt(rpl_sockfd, SOL_SOCKET, SO_SNDBUF, &sockbufsize,
+      sizeof(sockbufsize));
+    (void) setsockopt(rpl_sockfd, SOL_SOCKET, SO_RCVBUF, &sockbufsize,
+      sizeof(sockbufsize));
+
+  b_readlock();
+
+    bzero((char *) &serv_addr, sizeof(serv_addr));
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_addr.s_addr =
+        chn_ipaddr(common, groupindex, index).s_addr;
+    serv_addr.sin_port = htons(chn_port(common, groupindex, index));
+
+ b_unlock();
+
+  if (connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
+	// Error handler
+  }
+
+  stream2(clientfd, sockfd, groupindex, index);
+  break;
+
+
+} 
+
+
 //CloudAttest - adding argument index2 to function call
 void *stream_rep(int arg, int groupindex, int index, int index2, char *client_address,
 	     int client_address_size) {
