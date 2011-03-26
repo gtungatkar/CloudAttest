@@ -937,6 +937,28 @@ void cloud_connect (int arg, int groupindex, int index) {
 } 
 
 
+//CloudAttest - Parse Response Packet Function
+char * parse_response_packet(char *packet){
+	char *needle;
+	needle=strstr(packet,"Content-Type:"); //get the pointer to 'Content-Type' in *packet
+	if(needle!=NULL){
+		
+		while(*needle!='\n')
+			needle++;
+		while(isspace(*needle)) //skip the spaces
+			needle++;
+		return *needle;
+	}
+	return NULL;
+}
+
+
+//CloudAttest - Check for Request Head
+unsigned char check_request_head(char *packet){
+	if(strstr(packet,"HTTP"))
+		return 1;
+	return 0;
+}
 //CloudAttest - adding argument index2 to function call
 void *stream_rep(int arg, int groupindex, int index, int index2, char *client_address,
 	     int client_address_size) {
