@@ -947,11 +947,45 @@ char * parse_response_packet(char *packet){
 			needle++;
 		while(isspace(*needle)) //skip the spaces
 			needle++;
-		return *needle;
+		return needle;
 	}
 	return NULL;
 }
 
+
+//CloutAttest - File the Response PER request .. FILE pointer is Global
+unsigned char file_the_response(char *packet, int packet_size,unsigned char flag){
+	//we have file-descriptor resp_fd	
+	if(flag==1) // First response .. truncate file
+	{
+		if(close(resp_fd)<0) //error
+		{
+			//could not close the file
+			return 0;
+		}
+		else
+		{
+			if(resp_fd=(open("response.tmp",O_RDWR,O_TRUNC))<0) //error
+			{
+				//could not open truncated file
+				return 0;
+			}
+		}
+		return 1;
+	}
+	else
+	{
+		if(write(resp_fd,packet,packet_size)<0) //eror
+		{
+			//could not write to the file resp_fd
+			return 0;
+		}
+		return 1;
+			
+	}
+	return 0;
+
+}
 
 //CloudAttest - Check for Request Head
 unsigned char check_request_head(char *packet){
