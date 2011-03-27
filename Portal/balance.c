@@ -993,6 +993,29 @@ unsigned char check_request_head(char *packet){
 		return 1;
 	return 0;
 }
+
+//CloudAttest - Find the Content Length of the response Packet : Returns -1 on error.
+
+int parse_content_length(char *packet){
+        char *needle;
+        int length;
+        needle=strstr(packet,"Content-Length:"); //get the pointer to 'Content-Type' in *packet
+        if(needle!=NULL){
+
+                while(!isspace(*needle)) //skip the spaces
+                {
+                        needle++;
+                }
+
+                needle++;
+
+            length =  atoi(needle);
+            return length;
+
+        }
+        return -1;
+}
+
 //CloudAttest - adding argument index2 to function call
 void *stream_rep(int arg, int groupindex, int index, int index2, char *client_address,
 	     int client_address_size) {
