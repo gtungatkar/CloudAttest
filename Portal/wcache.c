@@ -25,7 +25,7 @@
 #include <pthread.h>
 #include "wcache.h"
 struct wcache_list * wcache_hashtable[WCACHE_HASHTABLE_SIZE];
-struct wcache cache;
+extern struct wcache cache;
 //extern struct http_server_config cfg; 
  pthread_mutex_t list_mutex;
  /* very rudimentary hash function */
@@ -56,6 +56,16 @@ int unlock_entry(struct wcache_entry *w)
 {
         return pthread_mutex_unlock(&(w->entry_lock));
 
+}
+int list_empty(struct wcache_list *l)
+{
+        if(l == NULL)
+                return 1;
+        if()
+        if((l->head.next == l->head.prev) &&
+                        (l->head.next == &(l->head)))
+                return 1;
+        return 0;
 }
 void wcache_table_init()
 {
@@ -189,15 +199,31 @@ RETWE:
 
 }
 #endif
-int wcache_remove_first(struct wcache *w)
+struct wcache_entry*  wcache_remove_first(struct wcache *w)
 {
 
+        struct wcache_entry * entry = 
+                container_of(w->l.head.next, struct wcache_entry, cache_elem);
         if(wcache_list_del(w->l.head.next) == ERROR)
         { 
-                return ERROR;
+                return NULL;
         }
         w->curr_size--;
-        return OK;
+        return entry;
+
+}
+int is_request_replicated(struct wcache *w)
+{
+
+        struct wcache_entry * entry;
+        if(!list_empty(w->l))
+        {
+                entry = 
+                        container_of(w->l.head.next, struct wcache_entry, cache_elem);
+                if(entry)
+                        return entry->is_replicated;
+        }
+        return 0;
 
 }
 int wcache_remove_entry(struct wcache_entry *w)
@@ -218,7 +244,7 @@ int wcache_remove_entry(struct wcache_entry *w)
         pthread_mutex_destroy(&(w->entry_lock));
         return OK;
 }
-
+/*
 int main()
 {
         struct wcache_entry *entry = wcache_entry_alloc();
@@ -230,3 +256,4 @@ int main()
         printf("size of queue after remove = %d\n", cache.curr_size);
         return 0;
 }
+ */

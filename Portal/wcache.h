@@ -31,7 +31,7 @@ struct wcache {
 
 /*A single entry in cache*/
 struct wcache_entry {
-        char http_request[HTTP_REQUEST_SIZE];
+        char *http_request;
         unsigned int signature_hash;
         int is_replicated;      /*Is this request replicated*/
         int size;       /*size of the entry*/
@@ -70,4 +70,5 @@ int wcache_remove_entry(struct wcache_entry *w);
 unsigned int hash(char * buf);
 int lock_entry(struct wcache_entry *w);
 int unlock_entry(struct wcache_entry *w);
+int list_empty(struct wcache_list *l);
 #endif

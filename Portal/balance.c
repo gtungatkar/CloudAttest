@@ -107,7 +107,7 @@
  */
 
 #include <balance.h>
-
+#include <wcache.h>
 const char *balance_rcsid = "$Id: balance.c,v 3.54 2010/12/03 12:47:10 t Exp $";
 static char *revision = "$Revision: 3.54 $";
 
@@ -592,7 +592,7 @@ int forward(int fromfd, int tofd, int groupindex, int channelindex)
   unsigned char buffer[MAXTXSIZE];
 
   rc = read(fromfd, buffer, MAXTXSIZE);
-
+  
   if (packetdump) {
     printf("-> %d\n", (int) rc);
     print_packet(buffer, rc);
@@ -601,6 +601,28 @@ int forward(int fromfd, int tofd, int groupindex, int channelindex)
   if (rc <= 0) {
     return (-1);
   } else {
+    if(check_request_head(buffer))
+    {
+            //New Request, Enqueue in request queue
+            struct wcache_entry *entry = wcache_entry_alloc();
+            if(entry == NULL)
+            {
+                fprintf(stderr, "Out of memory:malloc failed\n");
+                return -1;
+            }
+            entry->http_request = (char *)malloc(rc);
+            if(entry->http_request == NULL)
+            {
+                fprintf(stderr, "Out of memory:malloc failed\n");
+                return -1;
+            }
+            strncpy(entry->http_request, buffer, rc);
+            entry->size = rc;
+            //entry->is_replicated = probabilistic
+            entry->is_replicated = 1;
+            wcache_add(&cache, entry);
+
+    }
     if (writen(tofd, buffer, rc) != rc) {
       return (-1);
     }
@@ -680,6 +702,8 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
 
   rc = read(fromfd, buffer, MAXTXSIZE);
 
+
+
   if (1) {
     printf("-< %d\n", (int) rc);
 	printf("in ORIGINAL RESPONSE:\n");
@@ -689,6 +713,44 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
   if (rc <= 0) {
     return (-1);
   } else {
+  //This says that rc has no ERROR
+        if(parse_response_packet(buffer)){
+                if(is_request_replicated(&cache)){
+                     repl_request = head(&cache);  //Cache is the request queue.
+                     dequeue(&cache);
+                     //Parse to get content length
+                     content_length = parse_content_length(buffer);
+                     if(content_length == -1)
+                     {
+                             fprintf(stderr, "error in parse_content_length");
+                             return -1;
+                     }
+                     //Writing Response to file
+                     FILE *fp = fopen("<filename>",rw+);
+                     fwrite(buffer, sizeof(char), sizeof(buffer)/sizeof(char), fp);
+                     RESPONSE_REPL = 1; // set flag
+                }
+                else {
+                     //Do nothing
+                     continue;
+                }
+
+        }
+        else{
+              if(RESPONSE_REPL){
+                FILE *fp = fopen("<filename>", a+);
+                fwrite(buffer, sizeof(char), sizeof(buffer)/sizeof(char), fp);
+                content_length -= rc;
+
+              }
+              else{
+                //Do nothing
+                continue;
+              }
+        }
+
+
+
     if (writen(tofd, buffer, rc) != rc) {
       return (-1);
     }
