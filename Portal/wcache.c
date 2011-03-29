@@ -25,7 +25,7 @@
 #include <pthread.h>
 #include "wcache.h"
 struct wcache_list * wcache_hashtable[WCACHE_HASHTABLE_SIZE];
-extern struct wcache cache;
+//extern struct wcache cache;
 //extern struct http_server_config cfg; 
  pthread_mutex_t list_mutex;
  /* very rudimentary hash function */
@@ -61,7 +61,6 @@ int list_empty(struct wcache_list *l)
 {
         if(l == NULL)
                 return 1;
-        if()
         if((l->head.next == l->head.prev) &&
                         (l->head.next == &(l->head)))
                 return 1;
@@ -203,7 +202,10 @@ struct wcache_entry*  wcache_remove_first(struct wcache *w)
 {
 
         struct wcache_entry * entry = 
-                container_of(w->l.head.next, struct wcache_entry, cache_elem);
+                container_of((w->l.head.next), struct wcache_entry, cache_elem);
+        if(entry == NULL)
+                printf("NULL entry\n");
+     //   printf("entry = %s\n", entry->http_request);
         if(wcache_list_del(w->l.head.next) == ERROR)
         { 
                 return NULL;
@@ -216,7 +218,7 @@ int is_request_replicated(struct wcache *w)
 {
 
         struct wcache_entry * entry;
-        if(!list_empty(w->l))
+        if(!list_empty(&(w->l)))
         {
                 entry = 
                         container_of(w->l.head.next, struct wcache_entry, cache_elem);
@@ -247,13 +249,20 @@ int wcache_remove_entry(struct wcache_entry *w)
 /*
 int main()
 {
+        struct wcache cache;
         struct wcache_entry *entry = wcache_entry_alloc();
+        entry->http_request = (char *)malloc(20);
         strcpy(entry->http_request, "This is test request");
         cache.curr_size = 0;
+        wcache_list_init(&(cache.l));
         wcache_add(&cache, entry);
         printf("size of queue = %d\n", cache.curr_size);
-        wcache_remove_first(&cache);
-        printf("size of queue after remove = %d\n", cache.curr_size);
+        entry = NULL;
+        entry = wcache_remove_first(&cache);
+        if(list_empty(&(cache.l)))
+                printf("list empty\n");
+        printf("size of queue after remove = %d\n http req = %s\n",
+                       cache.curr_size, entry->http_request);
         return 0;
 }
  */
