@@ -705,6 +705,8 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
 {
   ssize_t rc;
   unsigned char buffer[MAXTXSIZE];
+  char *needle;
+
 
   rc = read(fromfd, buffer, MAXTXSIZE);
 
@@ -720,7 +722,7 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
     return (-1);
   } else {
   //This says that rc has no ERROR
-        if(parse_response_packet(buffer)){
+        if((needle=parse_response_packet(buffer))!=NULL){
                 if(is_request_replicated(&cache)){
                      repl_request = wcache_remove_first(&cache);  //Cache is the request queue.
                     // dequeue(&cache);
@@ -732,9 +734,8 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
                              return -1;
                      }
                      //Writing Response to file
-                     FILE *fp = fopen("<filename>",rw+);
-                     fwrite(buffer, sizeof(char), sizeof(buffer)/sizeof(char), fp);
-                     RESPONSE_REPL = 1; // set flag
+		     file_the_response(needle,(rc-(needle-buffer)),1);
+		     RESPONSE_REPL = 1; // set flag
                 }
                 else {
                      //Do nothing
@@ -743,10 +744,9 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
 
         }
         else{
-              if(RESPONSE_REPL){
-                FILE *fp = fopen("<filename>", a+);
-                fwrite(buffer, sizeof(char), sizeof(buffer)/sizeof(char), fp);
-                content_length -= rc;
+              if(RESPONSE_REPL){ //not the start if the packet... write directly to the opened file 'resp_fd'
+                file_the_response(buffer,rc,0);
+		content_length -= rc;
 
               }
               else{
@@ -1033,10 +1033,37 @@ unsigned char file_the_response(char *packet, int packet_size,unsigned char flag
 		}
 		else
 		{
-			if(resp_fd=(open("response.tmp",O_RDWR,O_TRUNC))<0) //error
+			if(resp_fd=(open("response.tmp",O_RDWR,O_TRUNC))<0)
 			{
 				//could not open truncated file
 				return 0;
+			}
+			else
+			{
+				if(close(resp_fd)<0)
+				{
+					//could not close the file
+				}
+				else
+				{  //open file in append mode
+			        	if(resp_fd=(open("response.tmp",O_RDWR,O_APPEND))<0)
+					{
+		                                //could not open file in append mode
+                		                return 0;
+		                        }
+					else
+					{
+						if(write(resp_fd,packet,packet_size)<0) //write here
+				                {
+				                        //could not write to the file resp_fd
+				                        return 0;
+				                }
+						return 1;
+						
+					}
+
+					
+				}
 			}
 		}
 		return 1;
@@ -2518,7 +2545,7 @@ int main(int argc, char *argv[])
 		while((rep_index=get_replication_index(grp_nchannels(common,groupindex)))==index);
 		printf("calling stream_rep: Index: %d    Rep_Index: %d\n",index,rep_index);
 
-		stream_rep(newsockfd, groupindex, index, rep_index, (char *) &cli_addr, clilen);
+		stream(newsockfd, groupindex, index, (char *) &cli_addr, clilen);
 	
 	}
 	else{
