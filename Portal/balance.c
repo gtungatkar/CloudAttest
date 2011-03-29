@@ -1020,7 +1020,7 @@ unsigned char file_the_response(char *packet, int packet_size,unsigned char flag
 	//we have file-descriptor resp_fd	
 	if(flag==1) // First response .. truncate file
 	{
-		if(close(resp_fd)<0) //error
+		if( (close(resp_fd)<0) ) //error
 		{
 			//could not close the file
 			return 0;
@@ -1059,8 +1059,9 @@ unsigned char file_the_response(char *packet, int packet_size,unsigned char flag
 					
 				}
 			}
-		}
+		} // end of inner open else.
 		return 1;
+	
 	}
 	else
 	{
