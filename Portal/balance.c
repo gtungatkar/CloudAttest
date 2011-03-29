@@ -699,6 +699,8 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
 {
   ssize_t rc;
   unsigned char buffer[MAXTXSIZE];
+  char *needle;
+
 
   rc = read(fromfd, buffer, MAXTXSIZE);
 
@@ -714,7 +716,7 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
     return (-1);
   } else {
   //This says that rc has no ERROR
-        if(parse_response_packet(buffer)){
+        if((needle=parse_response_packet(buffer))){
                 if(is_request_replicated(&cache)){
                      repl_request = head(&cache);  //Cache is the request queue.
                      dequeue(&cache);
@@ -726,9 +728,11 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
                              return -1;
                      }
                      //Writing Response to file
-                     FILE *fp = fopen("<filename>",rw+);
-                     fwrite(buffer, sizeof(char), sizeof(buffer)/sizeof(char), fp);
-                     RESPONSE_REPL = 1; // set flag
+                     //FILE *fp = fopen("<filename>",rw+);
+                     //fwrite(buffer, sizeof(char), sizeof(buffer)/sizeof(char), fp);
+                     
+		     file_the_response(needle,(rc-(needle-buffer)),1);
+		     RESPONSE_REPL = 1; // set flag
                 }
                 else {
                      //Do nothing
@@ -738,9 +742,10 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
         }
         else{
               if(RESPONSE_REPL){
-                FILE *fp = fopen("<filename>", a+);
-                fwrite(buffer, sizeof(char), sizeof(buffer)/sizeof(char), fp);
-                content_length -= rc;
+               // FILE *fp = fopen("<filename>", a+);
+               // fwrite(buffer, sizeof(char), sizeof(buffer)/sizeof(char), fp);
+                file_the_response(needle,rc,0);
+		content_length -= rc;
 
               }
               else{
@@ -2510,7 +2515,7 @@ int main(int argc, char *argv[])
 		while((rep_index=get_replication_index(grp_nchannels(common,groupindex)))==index);
 		printf("calling stream_rep: Index: %d    Rep_Index: %d\n",index,rep_index);
 
-		stream_rep(newsockfd, groupindex, index, rep_index, (char *) &cli_addr, clilen);
+		stream(newsockfd, groupindex, index, (char *) &cli_addr, clilen);
 	
 	}
 	else{
