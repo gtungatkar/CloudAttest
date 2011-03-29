@@ -144,6 +144,12 @@ static int connect_timeout;
 static char *bindhost = NULL;
 static char *outbindhost = NULL;
 
+//CloudAttest
+static int content_length = 0;
+static RESPONSE_REPL = 0;
+static struct wcache_entry * repl_request;
+static struct wcache cache;
+
 static struct timeval sel_tmout  = { 0, 0 }; /* seconds, microseconds */
 static struct timeval save_tmout = { 0, 0 }; /* seconds, microseconds */
 int resp_fd=-3;
@@ -720,8 +726,8 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
   //This says that rc has no ERROR
         if((needle=parse_response_packet(buffer))!=NULL){
                 if(is_request_replicated(&cache)){
-                     repl_request = head(&cache);  //Cache is the request queue.
-                     dequeue(&cache);
+                     repl_request = wcache_remove_first(&cache);  //Cache is the request queue.
+                    // dequeue(&cache);
                      //Parse to get content length
                      content_length = parse_content_length(buffer);
                      if(content_length == -1)
@@ -1022,7 +1028,7 @@ unsigned char file_the_response(char *packet, int packet_size,unsigned char flag
 	//we have file-descriptor resp_fd	
 	if(flag==1) // First response .. truncate file
 	{
-		if(close(resp_fd)<0) //error
+		if( (close(resp_fd)<0) ) //error
 		{
 			//could not close the file
 			return 0;
@@ -1061,8 +1067,9 @@ unsigned char file_the_response(char *packet, int packet_size,unsigned char flag
 					
 				}
 			}
-		}
+		} // end of inner open else.
 		return 1;
+	
 	}
 	else
 	{
@@ -2189,6 +2196,8 @@ int main(int argc, char *argv[])
   resp_fd=open("response.tmp",O_RDWR,O_APPEND);
   connect_timeout = DEFAULTTIMEOUT;
   initialize_release_variables();
+
+  wcache_list_init(&(cache.l));
 
 	fprintf(stdout, "in mainnnnn\n");
   while ((c = getopt(argc, argv, "c:b:B:t:T:adfpiHM6")) != EOF) {
