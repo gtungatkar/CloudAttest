@@ -2548,10 +2548,15 @@ int main(int argc, char *argv[])
 	//DO Replication with Probability of 0.2
 	if(do_replication()==1)
 	{
-		while((rep_index=get_replication_index(grp_nchannels(common,groupindex)))==index);
-		printf("calling stream_rep: Index: %d    Rep_Index: %d\n",index,rep_index);
-
-		stream(newsockfd, groupindex, index, (char *) &cli_addr, clilen);
+		if(grp_nchannels(common,groupindex)==1) // CloudAttest if the number of server channels is 1, give error that we cannot replicate :(
+		{
+			perror("Cannot Replicate, servers = 1\n");
+		}
+		else{
+			while((rep_index=get_replication_index(grp_nchannels(common,groupindex)))==index);
+			printf("calling stream_rep: Index: %d    Rep_Index: %d\n",index,rep_index);
+			stream(newsockfd, groupindex, index, (char *) &cli_addr, clilen);
+		}
 	
 	}
 	else{
