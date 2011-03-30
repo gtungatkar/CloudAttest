@@ -107,7 +107,7 @@
  */
 
 #include <balance.h>
-#include <wcache.h>
+
 const char *balance_rcsid = "$Id: balance.c,v 3.54 2010/12/03 12:47:10 t Exp $";
 static char *revision = "$Revision: 3.54 $";
 
@@ -146,12 +146,14 @@ static char *outbindhost = NULL;
 
 //CloudAttest
 static int content_length = 0;
-static RESPONSE_REPL = 0;
+static int RESPONSE_REPL = 0;
 static struct wcache_entry * repl_request;
 static struct wcache cache;
 
 static struct timeval sel_tmout  = { 0, 0 }; /* seconds, microseconds */
 static struct timeval save_tmout = { 0, 0 }; /* seconds, microseconds */
+int resp_fd=-3;
+
 
 int create_serversocket(char* node, char* service) {
   struct addrinfo hints;
@@ -592,6 +594,13 @@ int readline(int fd, char *ptr, int maxlen)
   return (n);
 }
 
+//CloudAttest - Check for Request Head
+unsigned char check_request_head(unsigned char *packet){
+        if(strstr((char *)packet,"HTTP"))
+                return 1;
+        return 0;
+}
+
 int forward(int fromfd, int tofd, int groupindex, int channelindex)
 {
   ssize_t rc;
@@ -622,7 +631,7 @@ int forward(int fromfd, int tofd, int groupindex, int channelindex)
                 fprintf(stderr, "Out of memory:malloc failed\n");
                 return -1;
             }
-            strncpy(entry->http_request, buffer, rc);
+            strncpy(entry->http_request, (char *)buffer, rc);
             entry->size = rc;
             //entry->is_replicated = probabilistic
             entry->is_replicated = 1;
@@ -701,11 +710,28 @@ int backward_rep(int fromfd, int tofd, int groupindex, int channelindex)
  return 0;
 }
 
+
+//CloudAttest - Parse Response Packet Function
+char* parse_response_packet(unsigned char *packet){
+        char *needle;
+        needle=strstr((char *)packet,"Content-Type:"); //get the pointer to 'Content-Type' in *packet
+        if(needle!=NULL){
+
+                while(*needle!='\n')
+                        needle++;
+                while(isspace(*needle)) //skip the spaces
+                        needle++;
+                return needle;
+        }
+        return NULL;
+}
+
+
 int backward(int fromfd, int tofd, int groupindex, int channelindex)
 {
   ssize_t rc;
   unsigned char buffer[MAXTXSIZE];
-  char *needle;
+  unsigned char *needle;
 
 
   rc = read(fromfd, buffer, MAXTXSIZE);
@@ -727,7 +753,7 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
                      repl_request = wcache_remove_first(&cache);  //Cache is the request queue.
                     // dequeue(&cache);
                      //Parse to get content length
-                     content_length = parse_content_length(buffer);
+                     content_length = parse_content_length((char *)buffer);
                      if(content_length == -1)
                      {
                              fprintf(stderr, "error in parse_content_length");
@@ -737,21 +763,13 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
 		     file_the_response(needle,(rc-(needle-buffer)),1);
 		     RESPONSE_REPL = 1; // set flag
                 }
-                else {
-                     //Do nothing
-                     continue;
-                }
-
+              
         }
         else{
               if(RESPONSE_REPL){ //not the start if the packet... write directly to the opened file 'resp_fd'
                 file_the_response(buffer,rc,0);
 		content_length -= rc;
 
-              }
-              else{
-                //Do nothing
-                continue;
               }
         }
 
@@ -1005,35 +1023,19 @@ void cloud_connect (int arg, int groupindex, int index) {
 } 
 
 
-//CloudAttest - Parse Response Packet Function
-char * parse_response_packet(char *packet){
-	char *needle;
-	needle=strstr(packet,"Content-Type:"); //get the pointer to 'Content-Type' in *packet
-	if(needle!=NULL){
-		
-		while(*needle!='\n')
-			needle++;
-		while(isspace(*needle)) //skip the spaces
-			needle++;
-		return needle;
-	}
-	return NULL;
-}
-
-
 //CloutAttest - File the Response PER request .. FILE pointer is Global
-unsigned char file_the_response(char *packet, int packet_size,unsigned char flag){
+unsigned char file_the_response(unsigned char *packet, int packet_size,unsigned char flag){
 	//we have file-descriptor resp_fd	
 	if(flag==1) // First response .. truncate file
 	{
-		if(close(resp_fd)<0) //error
+		if( (close(resp_fd)<0) ) //error
 		{
 			//could not close the file
 			return 0;
 		}
 		else
 		{
-			if(resp_fd=(open("response.tmp",O_RDWR,O_TRUNC))<0)
+			if( (resp_fd=(open("response.tmp",O_RDWR,O_TRUNC)))<0)
 			{
 				//could not open truncated file
 				return 0;
@@ -1046,7 +1048,7 @@ unsigned char file_the_response(char *packet, int packet_size,unsigned char flag
 				}
 				else
 				{  //open file in append mode
-			        	if(resp_fd=(open("response.tmp",O_RDWR,O_APPEND))<0)
+			        	if( (resp_fd=(open("response.tmp",O_RDWR,O_APPEND))) < 0)
 					{
 		                                //could not open file in append mode
                 		                return 0;
@@ -1065,8 +1067,9 @@ unsigned char file_the_response(char *packet, int packet_size,unsigned char flag
 					
 				}
 			}
-		}
+		} // end of inner open else.
 		return 1;
+	
 	}
 	else
 	{
@@ -1080,13 +1083,6 @@ unsigned char file_the_response(char *packet, int packet_size,unsigned char flag
 	}
 	return 0;
 
-}
-
-//CloudAttest - Check for Request Head
-unsigned char check_request_head(char *packet){
-	if(strstr(packet,"HTTP"))
-		return 1;
-	return 0;
 }
 
 //CloudAttest - Find the Content Length of the response Packet : Returns -1 on error.
@@ -1285,7 +1281,7 @@ void *stream_rep(int arg, int groupindex, int index, int index2, char *client_ad
 	      break;
 	    } else if (grp_type(common, groupindex) == GROUP_HASH) {
 	      unsigned int uindex;
-	      uindex = hash_fold((unsigned char*) &(((struct sockaddr_in6 *) &client_address)->sin6_addr), client_address_size);
+	      uindex = hash_fold((char*) &(((struct sockaddr_in6 *) &client_address)->sin6_addr), client_address_size);
 
 	      if (debugflag) {
 		fprintf(stderr, "HASH-method: fold returns %u\n", uindex);
@@ -1504,7 +1500,7 @@ void *stream(int arg, int groupindex, int index, char *client_address,
 	      break;
 	    } else if (grp_type(common, groupindex) == GROUP_HASH) {
 	      unsigned int uindex;
-	      uindex = hash_fold((unsigned char*) &(((struct sockaddr_in6 *) &client_address)->sin6_addr), client_address_size);
+	      uindex = hash_fold((char*) &(((struct sockaddr_in6 *) &client_address)->sin6_addr), client_address_size);
 
 	      if (debugflag) {
 		fprintf(stderr, "HASH-method: fold returns %u\n", uindex);
@@ -2188,6 +2184,9 @@ int main(int argc, char *argv[])
   struct rlimit r;
 #endif
 
+
+  //open the file response.tmp for further use
+  resp_fd=open("response.tmp",O_RDWR,O_APPEND);
   connect_timeout = DEFAULTTIMEOUT;
   initialize_release_variables();
 
@@ -2435,7 +2434,7 @@ int main(int argc, char *argv[])
 	    }
 	  }
 	} else if (grp_type(common, groupindex) == GROUP_HASH) {
-	  uindex = hash_fold((unsigned char*) &(((struct sockaddr_in6 *) &cli_addr)->sin6_addr), clilen);
+	  uindex = hash_fold((char*) &(((struct sockaddr_in6 *) &cli_addr)->sin6_addr), clilen);
    
 	  if(debugflag) {
 	    fprintf(stderr, "HASH-method: fold returns %u\n", uindex);
@@ -2542,10 +2541,15 @@ int main(int argc, char *argv[])
 	//DO Replication with Probability of 0.2
 	if(do_replication()==1)
 	{
-		while((rep_index=get_replication_index(grp_nchannels(common,groupindex)))==index);
-		printf("calling stream_rep: Index: %d    Rep_Index: %d\n",index,rep_index);
-
-		stream(newsockfd, groupindex, index, (char *) &cli_addr, clilen);
+		if(grp_nchannels(common,groupindex)==1) // CloudAttest if the number of server channels is 1, give error that we cannot replicate :(
+		{
+			perror("Cannot Replicate, servers = 1\n");
+		}
+		else{
+			while((rep_index=get_replication_index(grp_nchannels(common,groupindex)))==index);
+			printf("calling stream_rep: Index: %d    Rep_Index: %d\n",index,rep_index);
+			stream(newsockfd, groupindex, index, (char *) &cli_addr, clilen);
+		}
 	
 	}
 	else{
@@ -2558,4 +2562,6 @@ int main(int argc, char *argv[])
 
     close(newsockfd);		// parent process 
  }
+ //close response.tmp
+ close(resp_fd);
 }
