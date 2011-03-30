@@ -152,6 +152,8 @@ static struct wcache cache;
 
 static struct timeval sel_tmout  = { 0, 0 }; /* seconds, microseconds */
 static struct timeval save_tmout = { 0, 0 }; /* seconds, microseconds */
+int resp_fd=-3;
+
 
 int create_serversocket(char* node, char* service) {
   struct addrinfo hints;
@@ -2187,6 +2189,9 @@ int main(int argc, char *argv[])
   struct rlimit r;
 #endif
 
+
+  //open the file response.tmp for further use
+  resp_fd=open("response.tmp",O_RDWR,O_APPEND);
   connect_timeout = DEFAULTTIMEOUT;
   initialize_release_variables();
 
@@ -2557,4 +2562,6 @@ int main(int argc, char *argv[])
 
     close(newsockfd);		// parent process 
  }
+ //close response.tmp
+ close(resp_fd);
 }
