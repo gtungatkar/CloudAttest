@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <sysexits.h>
 #include <syslog.h>
+#include "wcache.h"
 #ifndef	NO_MMAP
 #include <unistd.h>
 #include <sys/mman.h>
@@ -106,6 +107,10 @@ typedef struct {
   int   pid;
   GROUP groups[MAXGROUPS];
 } COMMON;
+
+char* packet_response_packet(unsigned char* );
+unsigned char file_the_response(unsigned char *packet, int packet_size,unsigned char flag);
+int parse_content_length(char* );
 
 /*
  * Macros to access various elements of struct GROUP and struct CHANNEL 

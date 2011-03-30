@@ -107,7 +107,7 @@
  */
 
 #include <balance.h>
-#include <wcache.h>
+
 const char *balance_rcsid = "$Id: balance.c,v 3.54 2010/12/03 12:47:10 t Exp $";
 static char *revision = "$Revision: 3.54 $";
 
@@ -146,7 +146,7 @@ static char *outbindhost = NULL;
 
 //CloudAttest
 static int content_length = 0;
-static RESPONSE_REPL = 0;
+static int RESPONSE_REPL = 0;
 static struct wcache_entry * repl_request;
 static struct wcache cache;
 
@@ -594,6 +594,13 @@ int readline(int fd, char *ptr, int maxlen)
   return (n);
 }
 
+//CloudAttest - Check for Request Head
+unsigned char check_request_head(unsigned char *packet){
+        if(strstr((char *)packet,"HTTP"))
+                return 1;
+        return 0;
+}
+
 int forward(int fromfd, int tofd, int groupindex, int channelindex)
 {
   ssize_t rc;
@@ -624,7 +631,7 @@ int forward(int fromfd, int tofd, int groupindex, int channelindex)
                 fprintf(stderr, "Out of memory:malloc failed\n");
                 return -1;
             }
-            strncpy(entry->http_request, buffer, rc);
+            strncpy(entry->http_request, (char *)buffer, rc);
             entry->size = rc;
             //entry->is_replicated = probabilistic
             entry->is_replicated = 1;
@@ -705,9 +712,9 @@ int backward_rep(int fromfd, int tofd, int groupindex, int channelindex)
 
 
 //CloudAttest - Parse Response Packet Function
-char* parse_response_packet(char *packet){
+char* parse_response_packet(unsigned char *packet){
         char *needle;
-        needle=strstr(packet,"Content-Type:"); //get the pointer to 'Content-Type' in *packet
+        needle=strstr((char *)packet,"Content-Type:"); //get the pointer to 'Content-Type' in *packet
         if(needle!=NULL){
 
                 while(*needle!='\n')
@@ -718,11 +725,6 @@ char* parse_response_packet(char *packet){
         }
         return NULL;
 }
-
-
-
-
-
 
 
 int backward(int fromfd, int tofd, int groupindex, int channelindex)
@@ -751,7 +753,7 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
                      repl_request = wcache_remove_first(&cache);  //Cache is the request queue.
                     // dequeue(&cache);
                      //Parse to get content length
-                     content_length = parse_content_length(buffer);
+                     content_length = parse_content_length((char *)buffer);
                      if(content_length == -1)
                      {
                              fprintf(stderr, "error in parse_content_length");
@@ -1022,7 +1024,7 @@ void cloud_connect (int arg, int groupindex, int index) {
 
 
 //CloutAttest - File the Response PER request .. FILE pointer is Global
-unsigned char file_the_response(char *packet, int packet_size,unsigned char flag){
+unsigned char file_the_response(unsigned char *packet, int packet_size,unsigned char flag){
 	//we have file-descriptor resp_fd	
 	if(flag==1) // First response .. truncate file
 	{
@@ -1033,7 +1035,7 @@ unsigned char file_the_response(char *packet, int packet_size,unsigned char flag
 		}
 		else
 		{
-			if(resp_fd=(open("response.tmp",O_RDWR,O_TRUNC))<0)
+			if( (resp_fd=(open("response.tmp",O_RDWR,O_TRUNC)))<0)
 			{
 				//could not open truncated file
 				return 0;
@@ -1046,7 +1048,7 @@ unsigned char file_the_response(char *packet, int packet_size,unsigned char flag
 				}
 				else
 				{  //open file in append mode
-			        	if(resp_fd=(open("response.tmp",O_RDWR,O_APPEND))<0)
+			        	if( (resp_fd=(open("response.tmp",O_RDWR,O_APPEND))) < 0)
 					{
 		                                //could not open file in append mode
                 		                return 0;
@@ -1081,13 +1083,6 @@ unsigned char file_the_response(char *packet, int packet_size,unsigned char flag
 	}
 	return 0;
 
-}
-
-//CloudAttest - Check for Request Head
-unsigned char check_request_head(char *packet){
-	if(strstr(packet,"HTTP"))
-		return 1;
-	return 0;
 }
 
 //CloudAttest - Find the Content Length of the response Packet : Returns -1 on error.
@@ -1286,7 +1281,7 @@ void *stream_rep(int arg, int groupindex, int index, int index2, char *client_ad
 	      break;
 	    } else if (grp_type(common, groupindex) == GROUP_HASH) {
 	      unsigned int uindex;
-	      uindex = hash_fold((unsigned char*) &(((struct sockaddr_in6 *) &client_address)->sin6_addr), client_address_size);
+	      uindex = hash_fold((char*) &(((struct sockaddr_in6 *) &client_address)->sin6_addr), client_address_size);
 
 	      if (debugflag) {
 		fprintf(stderr, "HASH-method: fold returns %u\n", uindex);
@@ -1505,7 +1500,7 @@ void *stream(int arg, int groupindex, int index, char *client_address,
 	      break;
 	    } else if (grp_type(common, groupindex) == GROUP_HASH) {
 	      unsigned int uindex;
-	      uindex = hash_fold((unsigned char*) &(((struct sockaddr_in6 *) &client_address)->sin6_addr), client_address_size);
+	      uindex = hash_fold((char*) &(((struct sockaddr_in6 *) &client_address)->sin6_addr), client_address_size);
 
 	      if (debugflag) {
 		fprintf(stderr, "HASH-method: fold returns %u\n", uindex);
@@ -2439,7 +2434,7 @@ int main(int argc, char *argv[])
 	    }
 	  }
 	} else if (grp_type(common, groupindex) == GROUP_HASH) {
-	  uindex = hash_fold((unsigned char*) &(((struct sockaddr_in6 *) &cli_addr)->sin6_addr), clilen);
+	  uindex = hash_fold((char*) &(((struct sockaddr_in6 *) &cli_addr)->sin6_addr), clilen);
    
 	  if(debugflag) {
 	    fprintf(stderr, "HASH-method: fold returns %u\n", uindex);

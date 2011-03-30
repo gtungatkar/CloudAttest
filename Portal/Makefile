@@ -25,14 +25,18 @@ RELEASE=3.54
 
 all: balance 
 
-balance: balance.o butils.o
-	$(CC) $(CFLAGS) -I. -o balance balance.o butils.o $(LIBRARIES)
+balance: balance.o butils.o wcache.o
+	$(CC) $(CFLAGS) -I. -o balance balance.o butils.o wcache.o $(LIBRARIES)
 
 balance.o: balance.c balance.h
 	$(CC) $(CFLAGS) -I. -c balance.c
 
 butils.o: butils.c balance.h
 	$(CC) $(CFLAGS) -I. -c butils.c
+
+wcache.o: wcache.c wcache.h
+	$(CC) $(CFLAGS) -I. -c wcache.c
+
 
 balance.pdf: balance.ps
 	ps2pdf balance.ps balance.pdf	
