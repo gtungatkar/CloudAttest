@@ -701,11 +701,33 @@ int backward_rep(int fromfd, int tofd, int groupindex, int channelindex)
  return 0;
 }
 
+
+//CloudAttest - Parse Response Packet Function
+char* parse_response_packet(char *packet){
+        char *needle;
+        needle=strstr(packet,"Content-Type:"); //get the pointer to 'Content-Type' in *packet
+        if(needle!=NULL){
+
+                while(*needle!='\n')
+                        needle++;
+                while(isspace(*needle)) //skip the spaces
+                        needle++;
+                return needle;
+        }
+        return NULL;
+}
+
+
+
+
+
+
+
 int backward(int fromfd, int tofd, int groupindex, int channelindex)
 {
   ssize_t rc;
   unsigned char buffer[MAXTXSIZE];
-  char *needle;
+  unsigned char *needle;
 
 
   rc = read(fromfd, buffer, MAXTXSIZE);
@@ -737,21 +759,13 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
 		     file_the_response(needle,(rc-(needle-buffer)),1);
 		     RESPONSE_REPL = 1; // set flag
                 }
-                else {
-                     //Do nothing
-                     continue;
-                }
-
+              
         }
         else{
               if(RESPONSE_REPL){ //not the start if the packet... write directly to the opened file 'resp_fd'
                 file_the_response(buffer,rc,0);
 		content_length -= rc;
 
-              }
-              else{
-                //Do nothing
-                continue;
               }
         }
 
@@ -1003,22 +1017,6 @@ void cloud_connect (int arg, int groupindex, int index) {
 
 
 } 
-
-
-//CloudAttest - Parse Response Packet Function
-char * parse_response_packet(char *packet){
-	char *needle;
-	needle=strstr(packet,"Content-Type:"); //get the pointer to 'Content-Type' in *packet
-	if(needle!=NULL){
-		
-		while(*needle!='\n')
-			needle++;
-		while(isspace(*needle)) //skip the spaces
-			needle++;
-		return needle;
-	}
-	return NULL;
-}
 
 
 //CloutAttest - File the Response PER request .. FILE pointer is Global
