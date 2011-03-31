@@ -107,7 +107,7 @@
  */
 
 #include <balance.h>
-
+#include <stdlib.h>
 const char *balance_rcsid = "$Id: balance.c,v 3.54 2010/12/03 12:47:10 t Exp $";
 static char *revision = "$Revision: 3.54 $";
 
@@ -631,7 +631,7 @@ int forward(int fromfd, int tofd, int groupindex, int channelindex)
                 fprintf(stderr, "Out of memory:malloc failed\n");
                 return -1;
             }
-            strncpy(entry->http_request, (char *)buffer, rc);
+            memcpy(entry->http_request, (char *)buffer, rc);
             entry->size = rc;
             //entry->is_replicated = probabilistic
             entry->is_replicated = 1;
@@ -752,6 +752,10 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
                 if(is_request_replicated(&cache)){
                      repl_request = wcache_remove_first(&cache);  //Cache is the request queue.
                     // dequeue(&cache);
+                    if(repl_request)
+                    {
+                            printf("Request::\n%s", repl_request->http_request);
+                    }
                      //Parse to get content length
                      content_length = parse_content_length((char *)buffer);
                      if(content_length == -1)

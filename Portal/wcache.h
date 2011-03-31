@@ -72,4 +72,5 @@ int lock_entry(struct wcache_entry *w);
 int unlock_entry(struct wcache_entry *w);
 int list_empty(struct wcache_list *l);
 int is_request_replicated(struct wcache *w);
+struct wcache_entry*  wcache_remove_first(struct wcache *w);
 #endif
