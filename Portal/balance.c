@@ -2186,7 +2186,12 @@ int main(int argc, char *argv[])
 
 
   //open the file response.tmp for further use
-  resp_fd=open("response.tmp",O_RDWR,O_APPEND);
+  if( (resp_fd=open("response.tmp",O_RDWR,O_CREAT)) < 0 ){
+	fprintf(stdout, "Initial File open Error." );
+
+	}
+
+  fprintf(stdout, "Initial File opened successfully.");
   connect_timeout = DEFAULTTIMEOUT;
   initialize_release_variables();
 
