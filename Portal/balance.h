@@ -111,7 +111,8 @@ typedef struct {
 char* packet_response_packet(unsigned char* );
 unsigned char file_the_response(unsigned char *packet, int packet_size,unsigned char flag);
 int parse_content_length(char* );
-
+int get_replicated_socket(int, int);
+int get_replication_index(int );
 /*
  * Macros to access various elements of struct GROUP and struct CHANNEL 
  * within COMMON array

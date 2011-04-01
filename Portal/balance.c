@@ -732,7 +732,7 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
   ssize_t rc;
   unsigned char buffer[MAXTXSIZE];
   unsigned char *needle;
-
+  int repl_index, repl_socket;
 
   rc = read(fromfd, buffer, MAXTXSIZE);
 
@@ -773,7 +773,30 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
               if(RESPONSE_REPL){ //not the start if the packet... write directly to the opened file 'resp_fd'
                 file_the_response(buffer,rc,0);
 		content_length -= rc;
+		if(content_length == 0){
+			fprintf(stdout,"\n\nCONTENT LENGTH IS NOW 0\n\n");
+		   if(do_replication()==1)
+       	           {
+                      if(grp_nchannels(common,groupindex)==1) // CloudAttest if the number of server channels is 1, give error that we cannot replicate :(
+                      {
+                        perror("Cannot Replicate, servers = 1\n");
+                      }
+                      else{
+                        while((repl_index=get_replication_index(grp_nchannels(common,groupindex)))== (grp_current(common, groupindex)) );
+                        
+			printf("\n\nIn BACKWARD; GOT Index: %d    Rep_Index: %d\n",index,repl_index);
+                        
+			if( (repl_socket=get_replicated_socket(groupindex,repl_index)) < 0 ){
+				fprintf(stdout,"\n\n Error while getting the repl_socket \n\n");
+			} 
+			else {
+				fprintf(stdout,"\n\n Replicated Socket = %d \n\n",repl_socket);
+			}
+			 // stream(newsockfd, groupindex, index, (char *) &cli_addr, clilen);
+                      }
 
+                  }		
+		}
               }
         }
 
@@ -983,19 +1006,19 @@ void chld_handler(int signo) {
  */
 
 //CloudAttest--
-void cloud_connect (int arg, int groupindex, int index) {
+int get_replicated_socket(int groupindex, int index) {
 
    int startindex;
  
   int sockfd;
  
-  int clientfd;
+ // int clientfd;
  
   struct sockaddr_in serv_addr;
       //  printf("stream rep\n\n");
   startindex = index;           
-  clientfd = arg;
-  
+  //clientfd = arg;
+  fprintf(stdout,"\n\nINSIDE get_replicated_socket\n\n"); 
 
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
       err_dump("can't open stream socket");
@@ -1018,12 +1041,15 @@ void cloud_connect (int arg, int groupindex, int index) {
 
   if (connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
 	// Error handler
-  }
+ 	fprintf(stdout,"\n\nERROR connecting to the New SOCKET\n\n");	
+   }
+  else {
+	fprintf(stdout,"\n\n We got replicated socket : %d \n\n",sockfd);
+	return sockfd;
+   }
 
-  stream2(clientfd, sockfd, groupindex, index);
-  
-
-
+   return -1;	
+  //stream2(clientfd, sockfd, groupindex, index);
 } 
 
 
@@ -2201,7 +2227,7 @@ int main(int argc, char *argv[])
 
 
   //open the file response.tmp for further use
-  if( (resp_fd=open("response.tmp",O_CREAT)) < 0 ){
+  if( (resp_fd=open("response.tmp",O_CREAT,S_IRWXU)) < 0 ){
 	fprintf(stdout, "Initial File open Error." );
 
 	}
