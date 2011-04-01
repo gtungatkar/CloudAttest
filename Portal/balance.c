@@ -23,14 +23,14 @@
  *  3.50
  *    new option -6 forces IPv6 bind (hints.ai_family = AF_INET6)
  *  3.49
- *    ftok() patch applied (thanks to Vladan Djeric)  
+ *    ftok() patch applied (thanks to Vladan Djeric)
  *  3.48
- *    Problems with setting IPV6_V6ONLY socket option are now handled 
- *    more nicely with a syslog warning message 
+ *    Problems with setting IPV6_V6ONLY socket option are now handled
+ *    more nicely with a syslog warning message
  *  3.42
  *    Balance compiles now on systems where IPV6_V6ONLY is undefined
  *  3.35
- *    bugfix in autodisable code (thanks to Michael Durket) 
+ *    bugfix in autodisable code (thanks to Michael Durket)
  *  3.34
  *    syslog logging added (finally)
  *    -a autodisable option added (thanks to Mitsuru IWASAKI)
@@ -40,7 +40,7 @@
  *  3.32
  *    /var/run/balance may already exist (thanks to Thomas Steudten)
  *  3.31
- *    TCP_NODELAY properly switched on (thanks to Kurt J. Lidl). 
+ *    TCP_NODELAY properly switched on (thanks to Kurt J. Lidl).
  *  3.30
  *    Code cleanups and fixes (thanks to Kurt J. Lidl)
  *  3.28
@@ -55,12 +55,12 @@
  *  3.22
  *    writelock and channelcount patch from Stoyan Genov
  *    balance exit codes fix from Chris Wilson
- *    /var/run/balance is tried to be autocreated (if not there) 
+ *    /var/run/balance is tried to be autocreated (if not there)
  *    close of 0,1,2 on background operation
  *  3.19
  *    -h changed to -H
  *  3.17
- *    -h option added 
+ *    -h option added
  *    thanks to Werner Maier
  *  3.16
  *    fixed missing save_tmout initialization
@@ -70,7 +70,7 @@
  *  3.14
  *    -Wall cleanup
  *  3.12
- *    alarm(0) added, thanks to Jon Christensen 
+ *    alarm(0) added, thanks to Jon Christensen
  *  3.11
  *    Bugfix
  *  3.10
@@ -370,7 +370,7 @@ void *shm_malloc(char *file, int size)
        only the lower 12 bits of the inode number in the 'key'.
        See: http://bugs.opensolaris.org/bugdatabase/view_bug.do?bug_id=4265917
     */
-    
+
     FILE *rendezvousfp = NULL;
     struct timeval ct;
     long int seed;
@@ -383,10 +383,10 @@ void *shm_malloc(char *file, int size)
 
     if ((fscanf(rendezvousfp, "0x%x\n", &key)) <= 0) {
       gettimeofday(&ct, NULL);
-      seed = ct.tv_usec * getpid(); 
+      seed = ct.tv_usec * getpid();
       srand(seed);
 
-      /* Solaris rand() returns values between 0 and 0x7fff, 
+      /* Solaris rand() returns values between 0 and 0x7fff,
          so generate key byte by byte */
       key = 0;
       for (i = 0; i < sizeof(key); i++) {
@@ -582,12 +582,12 @@ int readline(int fd, char *ptr, int maxlen)
       }
     } else if (rc == 0) {
       if (n == 1) {
-	return (0);		// EOF, no data read 
+	return (0);		// EOF, no data read
       } else {
-	break;			// EOF, some data was read 
+	break;			// EOF, some data was read
       }
     } else {
-      return (-1);		// error 
+      return (-1);		// error
     }
   }
   *ptr = 0;
@@ -607,7 +607,7 @@ int forward(int fromfd, int tofd, int groupindex, int channelindex)
   unsigned char buffer[MAXTXSIZE];
 
   rc = read(fromfd, buffer, MAXTXSIZE);
-  
+
   if (packetdump) {
     printf("-> %d\n", (int) rc);
     print_packet(buffer, rc);
@@ -649,7 +649,7 @@ int forward(int fromfd, int tofd, int groupindex, int channelindex)
 }
 
 
-int forward_rep(int fromfd, int tofd, int replfd, int groupindex, 
+int forward_rep(int fromfd, int tofd, int replfd, int groupindex,
                 int channelindex, int replindex)
 {
   ssize_t rc;
@@ -758,22 +758,26 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
                     }
                      //Parse to get content length
                      content_length = parse_content_length((char *)buffer);
-                     if(content_length == -1)
+                     fprintf(stdout,"\n\nCONTENT-LENGTH: %d\n\n",content_length);
+		     if(content_length == -1)
                      {
                              fprintf(stderr, "error in parse_content_length");
                              return -1;
                      }
                      //Writing Response to file
-		     file_the_response(needle,(rc-(needle-buffer)),1);
+		     file_the_response(needle,(rc=(rc-(needle-buffer))),1);
 		     RESPONSE_REPL = 1; // set flag
+		     content_length -= rc;
+		    fprintf(stdout,"\n\nCONTENT-LENGTH: %d\n\n",content_length);
+
                 }
-              
+
         }
         else{
               if(RESPONSE_REPL){ //not the start if the packet... write directly to the opened file 'resp_fd'
                 file_the_response(buffer,rc,0);
 		content_length -= rc;
-		if(content_length == 0){
+/*		if(content_length == 0){
 			fprintf(stdout,"\n\nCONTENT LENGTH IS NOW 0\n\n");
 		   if(do_replication()==1)
        	           {
@@ -783,22 +787,54 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
                       }
                       else{
                         while((repl_index=get_replication_index(grp_nchannels(common,groupindex)))== (grp_current(common, groupindex)) );
-                        
+
 			printf("\n\nIn BACKWARD; GOT Index: %d    Rep_Index: %d\n",index,repl_index);
-                        
+
 			if( (repl_socket=get_replicated_socket(groupindex,repl_index)) < 0 ){
 				fprintf(stdout,"\n\n Error while getting the repl_socket \n\n");
-			} 
+			}
 			else {
 				fprintf(stdout,"\n\n Replicated Socket = %d \n\n",repl_socket);
 			}
 			 // stream(newsockfd, groupindex, index, (char *) &cli_addr, clilen);
                       }
 
-                  }		
-		}
-              }
+                  }
+		}  */
+              } // end of RESPONSE_REPL
         }
+
+
+
+
+	        if(content_length == 0){
+                        fprintf(stdout,"\n\nCONTENT LENGTH IS NOW 0\n\n");
+                   if(do_replication()==1)
+                   {
+                      if(grp_nchannels(common,groupindex)==1) // CloudAttest if the number of server channels is 1, give error that we cannot replicate :(
+                      {
+                        perror("Cannot Replicate, servers = 1\n");
+                      }
+                      else{
+                        while((repl_index=get_replication_index(grp_nchannels(common,groupindex)))== (grp_current(common, groupindex)) );
+
+                        printf("\n\nIn BACKWARD; GOT Index: %d    Rep_Index: %d\n",(grp_current(common, groupindex)),repl_index);
+
+                        if( (repl_socket=get_replicated_socket(groupindex,repl_index)) < 0 ){
+                                fprintf(stdout,"\n\n Error while getting the repl_socket \n\n");
+                        }
+                        else {
+                                fprintf(stdout,"\n\n Replicated Socket = %d \n\n",repl_socket);
+                        }
+                         // stream(newsockfd, groupindex, index, (char *) &cli_addr, clilen);
+                      }
+
+                  }
+                }
+
+
+
+
 
 
 
@@ -814,7 +850,7 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
 
 /*
  * the connection is really established, let's transfer the data
- *  as efficient as possible :-) 
+ *  as efficient as possible :-)
  */
 
 void stream2(int clientfd, int serverfd, int groupindex, int channelindex)
@@ -888,7 +924,7 @@ void stream2(int clientfd, int serverfd, int groupindex, int channelindex)
 }
 
   /*CloudAttest*/
-void stream2_rep(int clientfd, int serverfd, int replfd, int groupindex, 
+void stream2_rep(int clientfd, int serverfd, int replfd, int groupindex,
                 int channelindex, int replindex)
 {
   fd_set readfds;
@@ -960,7 +996,7 @@ void stream2_rep(int clientfd, int serverfd, int replfd, int groupindex,
 	printf("replfd = %d serverfd=%d client fd=%d \n", replfd, serverfd, clientfd);
 
     if (FD_ISSET(clientfd, &readfds)) {
-        printf("\ncalling forward_repl\n");    
+        printf("\ncalling forward_repl\n");
 	if (forward_rep(clientfd, serverfd, replfd, groupindex, channelindex, replindex) < 0) {
                     break;
             }
@@ -972,7 +1008,7 @@ void stream2_rep(int clientfd, int serverfd, int replfd, int groupindex,
             //Major logic of hash/signature and comparison between replicated
             //and actual response should go here.
 	break;
-           
+
     }
 	printf("Replicated RESPONSE:\n");
 	}
@@ -980,7 +1016,7 @@ void stream2_rep(int clientfd, int serverfd, int replfd, int groupindex,
 	printf("getting original response\n");
       if (backward(serverfd, clientfd, groupindex, channelindex) < 0) {
 	break;
-	
+
       }
     }
   }
@@ -1002,23 +1038,23 @@ void chld_handler(int signo) {
 }
 
 /*
- * a channel in a group is selected and we try to establish a connection 
+ * a channel in a group is selected and we try to establish a connection
  */
 
 //CloudAttest--
 int get_replicated_socket(int groupindex, int index) {
 
    int startindex;
- 
+
   int sockfd;
- 
+
  // int clientfd;
- 
+
   struct sockaddr_in serv_addr;
       //  printf("stream rep\n\n");
-  startindex = index;           
+  startindex = index;
   //clientfd = arg;
-  fprintf(stdout,"\n\nINSIDE get_replicated_socket\n\n"); 
+  fprintf(stdout,"\n\nINSIDE get_replicated_socket\n\n");
 
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
       err_dump("can't open stream socket");
@@ -1041,21 +1077,21 @@ int get_replicated_socket(int groupindex, int index) {
 
   if (connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
 	// Error handler
- 	fprintf(stdout,"\n\nERROR connecting to the New SOCKET\n\n");	
+ 	fprintf(stdout,"\n\nERROR connecting to the New SOCKET\n\n");
    }
   else {
 	fprintf(stdout,"\n\n We got replicated socket : %d \n\n",sockfd);
 	return sockfd;
    }
 
-   return -1;	
+   return -1;
   //stream2(clientfd, sockfd, groupindex, index);
-} 
+}
 
 
 //CloutAttest - File the Response PER request .. FILE pointer is Global
 unsigned char file_the_response(unsigned char *packet, int packet_size,unsigned char flag){
-	//we have file-descriptor resp_fd	
+	//we have file-descriptor resp_fd
 	if(flag==1) // First response .. truncate file
 	{
 		if( (close(resp_fd)<0) ) //error
@@ -1102,15 +1138,15 @@ unsigned char file_the_response(unsigned char *packet, int packet_size,unsigned 
 				                        return 0;
 				                }
 						return 1;
-						
+
 					}
 
-					
+
 				}
 			}
 		} // end of inner open else.
 		return 1;
-	
+
 	}
 	else
 	{
@@ -1120,7 +1156,7 @@ unsigned char file_the_response(unsigned char *packet, int packet_size,unsigned 
 			return 0;
 		}
 		return 1;
-			
+
 	}
 	return 0;
 
@@ -1161,7 +1197,7 @@ void *stream_rep(int arg, int groupindex, int index, int index2, char *client_ad
 	printf("stream rep\n\n");
   startindex = index;		// lets keep where we start...
   clientfd = arg;
-  rpl_index = index2;   //CloudAttest Get the index of the required replicated server -> say index2	
+  rpl_index = index2;   //CloudAttest Get the index of the required replicated server -> say index2
   for (;;) {
 
     if (debugflag) {
@@ -1169,7 +1205,7 @@ void *stream_rep(int arg, int groupindex, int index, int index2, char *client_ad
 	      index);
       fflush(stderr);
     }
-    
+
     //CloudAttest Getting socket descriptor by the required command. New Socket -> rpl_sockfd
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
       err_dump("can't open stream socket");
@@ -1179,7 +1215,7 @@ void *stream_rep(int arg, int groupindex, int index, int index2, char *client_ad
       err_dump("can't open replicated stream socket");
     }
 
-    //CloudAttest Set Socket Options -> for the particular socket descriptor. Should be replicated for the required socket descriptor rpl_sockfd	
+    //CloudAttest Set Socket Options -> for the particular socket descriptor. Should be replicated for the required socket descriptor rpl_sockfd
     (void) setsockopt(rpl_sockfd, SOL_SOCKET, SO_SNDBUF, &sockbufsize,
       sizeof(sockbufsize));
     (void) setsockopt(rpl_sockfd, SOL_SOCKET, SO_RCVBUF, &sockbufsize,
@@ -1193,7 +1229,7 @@ void *stream_rep(int arg, int groupindex, int index, int index2, char *client_ad
 
     /*
      *  if -B is specified, balance tries to bind to it even on
-     *  outgoing connections 
+     *  outgoing connections
      */
 
     //CloudAttest Required only for -B option variable option. To be tested if it can be ignored.
@@ -1209,7 +1245,7 @@ void *stream_rep(int arg, int groupindex, int index, int index2, char *client_ad
     }
 
     b_readlock();
-    
+
     bzero((char *) &serv_addr, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_addr.s_addr =
@@ -1217,7 +1253,7 @@ void *stream_rep(int arg, int groupindex, int index, int index2, char *client_ad
     serv_addr.sin_port = htons(chn_port(common, groupindex, index));
 
     //CloudAttest The following procedure is standard for creating socket at server side.
-    //CloudAttest Legacy function: The bzero() function shall place n zero-valued bytes in the area pointed to by s. 
+    //CloudAttest Legacy function: The bzero() function shall place n zero-valued bytes in the area pointed to by s.
     bzero((char *) &rpl_serv_addr, sizeof(rpl_serv_addr));
     rpl_serv_addr.sin_family = AF_INET;
     rpl_serv_addr.sin_addr.s_addr =
@@ -1250,7 +1286,7 @@ void *stream_rep(int arg, int groupindex, int index, int index2, char *client_ad
       }
 
       /* here we've received an error (either 'timeout' or 'connection refused')
-       * let's start some magical failover mechanisms 
+       * let's start some magical failover mechanisms
        */
 
       c_writelock(groupindex, index);
@@ -1278,20 +1314,20 @@ void *stream_rep(int arg, int groupindex, int index, int index2, char *client_ad
 	      index = 0;
 	    }
 	    if (index == startindex) {
-	      index = -1;	// Giveup 
+	      index = -1;	// Giveup
 	      break;
 	    }
 	    if (chn_status(common, groupindex, index) == 1 &&
 		(chn_maxc(common, groupindex, index) == 0 ||
 		 (chn_c(common, groupindex, index) <
 		  chn_maxc(common, groupindex, index)))) {
-	      break;		// new index found 
+	      break;		// new index found
 	    } else {
 	      continue;
 	    }
 	  } else if (grp_type(common, groupindex) == GROUP_HASH) {
 
-	    // If the current group is type hash, we giveup immediately 
+	    // If the current group is type hash, we giveup immediately
 	    index = -1;
 	    break;
 	  } else {
@@ -1315,7 +1351,7 @@ void *stream_rep(int arg, int groupindex, int index, int index2, char *client_ad
 		index = grp_current(common, groupindex);
 		startindex = index;	// This fixes the "endless loop error"
 					// with all hosts being down and one
-					// in the last group... (from Anthony Baxter) 
+					// in the last group... (from Anthony Baxter)
 	      } else {
 		goto again;
 	      }
@@ -1353,7 +1389,7 @@ void *stream_rep(int arg, int groupindex, int index, int index2, char *client_ad
       b_unlock();
 
       if (index >= 0) {
-	// lets try it again 
+	// lets try it again
 	close(sockfd);
 	c_writelock(groupindex, index);
 	chn_c(common, groupindex, index) += 1;
@@ -1380,7 +1416,7 @@ void *stream_rep(int arg, int groupindex, int index, int index2, char *client_ad
       }
       b_unlock();
 
-      // everything's fine ... 
+      // everything's fine ...
 
       //stream2(clientfd, sockfd, groupindex, index);
       // stream2 bekommt den Channel-Index mit
@@ -1429,7 +1465,7 @@ void *stream(int arg, int groupindex, int index, char *client_address,
 
     /*
      *  if -B is specified, balance tries to bind to it even on
-     *  outgoing connections 
+     *  outgoing connections
      */
 
     if (outbindhost != NULL) {
@@ -1469,7 +1505,7 @@ void *stream(int arg, int groupindex, int index, char *client_address,
       }
 
       /* here we've received an error (either 'timeout' or 'connection refused')
-       * let's start some magical failover mechanisms 
+       * let's start some magical failover mechanisms
        */
 
       c_writelock(groupindex, index);
@@ -1497,20 +1533,20 @@ void *stream(int arg, int groupindex, int index, char *client_address,
 	      index = 0;
 	    }
 	    if (index == startindex) {
-	      index = -1;	// Giveup 
+	      index = -1;	// Giveup
 	      break;
 	    }
 	    if (chn_status(common, groupindex, index) == 1 &&
 		(chn_maxc(common, groupindex, index) == 0 ||
 		 (chn_c(common, groupindex, index) <
 		  chn_maxc(common, groupindex, index)))) {
-	      break;		// new index found 
+	      break;		// new index found
 	    } else {
 	      continue;
 	    }
 	  } else if (grp_type(common, groupindex) == GROUP_HASH) {
 
-	    // If the current group is type hash, we giveup immediately 
+	    // If the current group is type hash, we giveup immediately
 	    index = -1;
 	    break;
 	  } else {
@@ -1534,7 +1570,7 @@ void *stream(int arg, int groupindex, int index, char *client_address,
 		index = grp_current(common, groupindex);
 		startindex = index;	// This fixes the "endless loop error"
 					// with all hosts being down and one
-					// in the last group... (from Anthony Baxter) 
+					// in the last group... (from Anthony Baxter)
 	      } else {
 		goto again;
 	      }
@@ -1572,7 +1608,7 @@ void *stream(int arg, int groupindex, int index, char *client_address,
       b_unlock();
 
       if (index >= 0) {
-	// lets try it again 
+	// lets try it again
 	close(sockfd);
 	c_writelock(groupindex, index);
 	chn_c(common, groupindex, index) += 1;
@@ -1599,7 +1635,7 @@ void *stream(int arg, int groupindex, int index, char *client_address,
       }
       b_unlock();
 
-      // everything's fine ... 
+      // everything's fine ...
 
       stream2(clientfd, sockfd, groupindex, index);
       // stream2 bekommt den Channel-Index mit
@@ -1688,7 +1724,7 @@ void usage(void)
   exit(EX_USAGE);
 }
 
-// goto background: 
+// goto background:
 
 void background(void) {
   int childpid;
@@ -1705,7 +1741,7 @@ void background(void) {
 #else
   setpgrp();
 #endif
-  if(chdir("/") <0) 
+  if(chdir("/") <0)
     fprintf(stderr, "cannot chdir\n");
   close(0);
   close(1);
@@ -2107,7 +2143,7 @@ int shell(char *argument)
 	  if ((arg2 = strtok(NULL, " \t\n")) != NULL) {
             mygroup = atoi(arg1);
             mychannel = atoi(arg2);
-	    if (mygroup < 0 || mygroup > MAXGROUPS) { 
+	    if (mygroup < 0 || mygroup > MAXGROUPS) {
 	      printf("unknown group\n");
 	    } else {
 	      if(mychannel < 0 || mychannel > grp_nchannels(common, currentgroup)) {
@@ -2136,7 +2172,7 @@ int shell(char *argument)
 	  if ((arg2 = strtok(NULL, " \t\n")) != NULL) {
             mygroup = atoi(arg1);
             mychannel = atoi(arg2);
-	    if (mygroup < 0 || mygroup > MAXGROUPS) { 
+	    if (mygroup < 0 || mygroup > MAXGROUPS) {
 	      printf("unknown group\n");
 	    } else {
 	      if(mychannel < 0 || mychannel > grp_nchannels(common, currentgroup)) {
@@ -2233,7 +2269,7 @@ int main(int argc, char *argv[])
 	}
 else{
   fprintf(stdout, "Initial File opened successfully.");
-}  
+}
 connect_timeout = DEFAULTTIMEOUT;
   initialize_release_variables();
 
@@ -2334,7 +2370,7 @@ connect_timeout = DEFAULTTIMEOUT;
   chld_action.sa_flags = SA_RESTART;
   sigemptyset(&chld_action.sa_mask);
   sigaction(SIGCHLD, &chld_action, NULL);
-  // really dump core if something fails... 
+  // really dump core if something fails...
 
 #ifdef BalanceBSD
 #else
@@ -2343,7 +2379,7 @@ connect_timeout = DEFAULTTIMEOUT;
   setrlimit(RLIMIT_CORE, &r);
 #endif
 
-  // get the source port 
+  // get the source port
 
   if ((source_port = getport(argv[0])) == 0) {
     fprintf(stderr, "invalid port [%s], exiting.\n", argv[0]);
@@ -2400,7 +2436,7 @@ connect_timeout = DEFAULTTIMEOUT;
   }
 
   if (interactive) {
-    // command mode ! 
+    // command mode !
     if ((rendezvousfd = open(rendezvousfile, O_RDWR, 0)) < 0) {
       perror("open");
       fprintf(stderr,"check rendezvousfile permissions [%s]\n",rendezvousfile);
@@ -2423,7 +2459,7 @@ connect_timeout = DEFAULTTIMEOUT;
   (void) setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &sockbufsize, sizeof(sockbufsize));
   (void) setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &sockbufsize, sizeof(sockbufsize));
 
-  // init of common (*after* bind()) 
+  // init of common (*after* bind())
 
   if (!foreground) {
     background();
@@ -2452,10 +2488,10 @@ connect_timeout = DEFAULTTIMEOUT;
       fprintf(stderr, "connect from %s clilen=%d\n", buf, clilen);
     }
 
-    /* 
+    /*
      * the balancing itself:
      * - groupindex = 0
-     * - decision wich channel to use for the first try 
+     * - decision wich channel to use for the first try
      * - client address available in cli_addr
      *
      */
@@ -2482,7 +2518,7 @@ connect_timeout = DEFAULTTIMEOUT;
 	  }
 	} else if (grp_type(common, groupindex) == GROUP_HASH) {
 	  uindex = hash_fold((char*) &(((struct sockaddr_in6 *) &cli_addr)->sin6_addr), clilen);
-   
+
 	  if(debugflag) {
 	    fprintf(stderr, "HASH-method: fold returns %u\n", uindex);
           }
@@ -2519,7 +2555,7 @@ connect_timeout = DEFAULTTIMEOUT;
 		    (chn_maxc(common, groupindex, index) == 0 ||
 		     (chn_c(common, groupindex, index) <
 		   chn_maxc(common, groupindex, index))) //CloudAttest Made a change here... added this if condition
-		   ){//grp_current(common, groupindex) = 0;//CloudAttest ?? What is this change ?? major change here from the original main? 
+		   ){//grp_current(common, groupindex) = 0;//CloudAttest ?? What is this change ?? major change here from the original main?
 		   if (debugflag)
                     fprintf(stderr, "channel choosen: %d in group %d.\n",
                             index, groupindex);
@@ -2547,7 +2583,7 @@ connect_timeout = DEFAULTTIMEOUT;
       grp_current(common, groupindex) = index;
       grp_current(common, groupindex)++;        // current index dieser gruppe wieder null, wenn vorher ungueltig (-1)
 
-      // Der index der gruppe wird neu berechnet und gespeichert, "index" ist immer noch 
+      // Der index der gruppe wird neu berechnet und gespeichert, "index" ist immer noch
       // -1 oder der zu waehlende index...
 
       if (grp_current(common, groupindex) >=
@@ -2556,10 +2592,10 @@ connect_timeout = DEFAULTTIMEOUT;
       }
       //CloudAttest problem with braces :-/
       if (index >= 0) {
-	chn_c(common, groupindex, index)++;	// we promise a successful connection 
-	chn_tc(common, groupindex, index)++;	// also incrementing the total count 
-	// c++ 
-	break;					// index in this group found 
+	chn_c(common, groupindex, index)++;	// we promise a successful connection
+	chn_tc(common, groupindex, index)++;	// also incrementing the total count
+	// c++
+	break;					// index in this group found
       } else {
 	groupindex++;				// try next group !
 	if (groupindex >= MAXGROUPS) {
@@ -2573,42 +2609,21 @@ connect_timeout = DEFAULTTIMEOUT;
     if (index >= 0) {
       if ((childpid = fork()) < 0) {
 
-	// the connection is rejected if fork() returns error, 
+	// the connection is rejected if fork() returns error,
 	// but main process stays alive !
 
 	if (debugflag) {
 	  fprintf(stderr, "fork error\n");
 	}
-      } else if (childpid == 0){ 	// child process 
-	close(sockfd);			// close original socket 
-	// process the request: 
-	//}	
-	
-	//CloudAttest
-	//DO Replication with Probability of 0.2
-	if(do_replication()==1)
-	{
-		if(grp_nchannels(common,groupindex)==1) // CloudAttest if the number of server channels is 1, give error that we cannot replicate :(
-		{
-			perror("Cannot Replicate, servers = 1\n");
-		}
-		else{
-			while((rep_index=get_replication_index(grp_nchannels(common,groupindex)))==index);
-			printf("calling stream_rep: Index: %d    Rep_Index: %d\n",index,rep_index);
-			stream(newsockfd, groupindex, index, (char *) &cli_addr, clilen);
-		}
-	
-	}
-	else{
-		fprintf(stdout, "calling regular stream\n");
-		stream(newsockfd, groupindex, index, (char *) &cli_addr, clilen);  //CloudAttest - No change to be made , index2 = 0
-	}
+      } else if (childpid == 0) {	// child process
+	close(sockfd);			// close original socket
+	// process the request:
+
+	stream(newsockfd, groupindex, index, (char *) &cli_addr, clilen);
 	exit(EX_OK);
       }
     }
 
-    close(newsockfd);		// parent process 
- }
- //close response.tmp
- close(resp_fd);
+    close(newsockfd);		// parent process
+  }
 }
