@@ -1035,30 +1035,41 @@ unsigned char file_the_response(unsigned char *packet, int packet_size,unsigned 
 		if( (close(resp_fd)<0) ) //error
 		{
 			//could not close the file
+			fprintf(stdout,"Closing ERROR\n\n\n");
 			return 0;
 		}
 		else
 		{
-			if( (resp_fd=(open("response.tmp",O_RDWR,O_TRUNC)))<0)
+			if( (resp_fd=(open("response.tmp",O_RDWR|O_TRUNC)))<0)
 			{
 				//could not open truncated file
+				fprintf(stdout,"\n\nError in opening in TRUNC mode\n\n");
 				return 0;
 			}
 			else
 			{
+				 fprintf(stdout,"\n\nOpened in  TRUNC mode\n\n");
+
 				if(close(resp_fd)<0)
 				{
 					//could not close the file
+					 fprintf(stdout,"\n\nError in Closing the file.\n\n");
+
+					//return 0;
 				}
 				else
 				{  //open file in append mode
-			        	if( (resp_fd=(open("response.tmp",O_RDWR,O_APPEND))) < 0)
+			        	if( (resp_fd=(open("response.tmp",O_RDWR|O_APPEND))) < 0)
 					{
 		                                //could not open file in append mode
-                		                return 0;
+                		                 fprintf(stdout,"\n\nError in opening in APPEND mode\n\n");
+
+						return 0;
 		                        }
 					else
 					{
+						 fprintf(stdout,"\n\nOpened in APPEND mode\n\n");
+
 						if(write(resp_fd,packet,packet_size)<0) //write here
 				                {
 				                        //could not write to the file resp_fd
@@ -2190,13 +2201,14 @@ int main(int argc, char *argv[])
 
 
   //open the file response.tmp for further use
-  if( (resp_fd=open("response.tmp",O_RDWR,O_CREAT)) < 0 ){
+  if( (resp_fd=open("response.tmp",O_CREAT)) < 0 ){
 	fprintf(stdout, "Initial File open Error." );
 
 	}
-
+else{
   fprintf(stdout, "Initial File opened successfully.");
-  connect_timeout = DEFAULTTIMEOUT;
+}  
+connect_timeout = DEFAULTTIMEOUT;
   initialize_release_variables();
 
   wcache_list_init(&(cache.l));
