@@ -1071,8 +1071,8 @@ int get_replicated_socket(int groupindex, int index) {
 
    int startindex;
 
-  int sockfd;
-
+   int sockfd;
+   int i = 0;
  // int clientfd;
 
   struct sockaddr_in serv_addr;
@@ -1081,9 +1081,12 @@ int get_replicated_socket(int groupindex, int index) {
   //clientfd = arg;
   fprintf(stdout,"\n\nINSIDE get_replicated_socket\n\n");
 
+  for(i=0; i<4; i++){
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
       err_dump("can't open stream socket");
     }
+	fprintf(stdout, "\n\nGot SOCKET : %d \n\n",sockfd);
+  }
 
   (void) setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &sockbufsize,
       sizeof(sockbufsize));
