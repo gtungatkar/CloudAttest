@@ -731,8 +731,10 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
 {
   ssize_t rc;
   unsigned char buffer[MAXTXSIZE];
+  unsigned char repl_buffer[MAXTXSIZE];
   unsigned char *needle;
   int repl_index, repl_socket;
+  int repl_fd;
 
   rc = read(fromfd, buffer, MAXTXSIZE);
 
@@ -825,6 +827,29 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
                         }
                         else {
                                 fprintf(stdout,"\n\n Replicated Socket = %d \n\n",repl_socket);
+                                exit(-1);
+                        }
+                        if(repl_request)
+                        {
+                                int retw = 0;
+                                retw = write(repl_socket, repl_request->http_request,
+                                                repl_request->size);
+                                if(retw < 0)
+                                {
+                                        fprintf(stderr, "write to replicated\
+                                                        socket failed\n");
+                                }
+                                repl_fd = open("repl_resp.tmp", O_RDWR|O_CREAT,
+                                                0644);
+                                if(repl_fd < 0)
+                                        fprintf(stderr, "error opening replicated file\n");
+                                while((retw = read(repl_socket, repl_buffer,
+                                                        MAXTXSIZE)) > 0)
+                                {
+                                        write(repl_fd, repl_buffer, retw);
+
+                                }
+                                close(repl_fd);
                         }
                          // stream(newsockfd, groupindex, index, (char *) &cli_addr, clilen);
                       }
