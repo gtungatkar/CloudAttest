@@ -824,14 +824,15 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
 
                         if( (repl_socket=get_replicated_socket(groupindex,repl_index)) < 0 ){
                                 fprintf(stdout,"\n\n Error while getting the repl_socket \n\n");
-                        }
+                        	exit(-1);
+				}
                         else {
                                 fprintf(stdout,"\n\n Replicated Socket = %d \n\n",repl_socket);
-                                exit(-1);
+                             //   exit(-1);
                         }
                         if(repl_request)
                         {
-                                int retw = 0;
+                                int retw = 0, hdrflg = 0, partial = 0;
                                 retw = write(repl_socket, repl_request->http_request,
                                                 repl_request->size);
                                 if(retw < 0)
@@ -839,15 +840,30 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
                                         fprintf(stderr, "write to replicated\
                                                         socket failed\n");
                                 }
-                                repl_fd = open("repl_resp.tmp", O_RDWR|O_CREAT,
+                                repl_fd = open("repl_resp.tmp", O_RDWR|O_CREAT|O_TRUNC,
                                                 0644);
                                 if(repl_fd < 0)
                                         fprintf(stderr, "error opening replicated file\n");
                                 while((retw = read(repl_socket, repl_buffer,
                                                         MAXTXSIZE)) > 0)
                                 {
-                                        write(repl_fd, repl_buffer, retw);
-
+					if(!hdrflg)
+					{
+						needle = parse_response_packet(repl_buffer);
+						printf("NEEDLE : %s\n", needle);
+						if(needle){
+							hdrflg = 1;
+							partial = 1;
+						}
+					}
+					if(partial)
+					{
+						printf("numbytes = %d\n", (needle - repl_buffer));
+						write(repl_fd, needle, retw -(needle - repl_buffer));
+						partial = 0;
+					}
+					else
+						write(repl_fd, repl_buffer, retw);
                                 }
                                 close(repl_fd);
                         }
@@ -1073,13 +1089,14 @@ int get_replicated_socket(int groupindex, int index) {
 
    int sockfd;
    int i = 0;
+	//index = 1;
  // int clientfd;
 
   struct sockaddr_in serv_addr;
       //  printf("stream rep\n\n");
   startindex = index;
   //clientfd = arg;
-  fprintf(stdout,"\n\nINSIDE get_replicated_socket\n\n");
+  fprintf(stdout,"\n\nINSIDE get_replicated_socket with %d grp index and %d index\n\n",groupindex, index);
 
   for(i=0; i<4; i++){
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
@@ -1100,7 +1117,7 @@ int get_replicated_socket(int groupindex, int index) {
     serv_addr.sin_addr.s_addr =
         chn_ipaddr(common, groupindex, index).s_addr;
     serv_addr.sin_port = htons(chn_port(common, groupindex, index));
-
+	printf("connecting to replicated server IP = %s\n", inet_ntoa(chn_ipaddr(common, groupindex, index)));
  b_unlock();
 
   if (connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
@@ -1512,9 +1529,10 @@ void *stream(int arg, int groupindex, int index, char *client_address,
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_addr.s_addr =
 	chn_ipaddr(common, groupindex, index).s_addr;
+
     serv_addr.sin_port = htons(chn_port(common, groupindex, index));
     b_unlock();
-
+	printf("ORIGNIAL SERVER IP = %s\n", inet_ntoa(chn_ipaddr(common, groupindex, index)));
     alrm_action.sa_handler = alrm_handler;
     alrm_action.sa_flags = 0;	// don't restart !
     sigemptyset(&alrm_action.sa_mask);
