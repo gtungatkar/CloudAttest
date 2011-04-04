@@ -140,7 +140,7 @@ static int bindipv6 = 0;
 static int sockbufsize = 32768;
 
 static int connect_timeout;
-
+static int current_original_channel=-1;
 static char *bindhost = NULL;
 static char *outbindhost = NULL;
 
@@ -818,9 +818,10 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
                         perror("Cannot Replicate, servers = 1\n");
                       }
                       else{
-                        while((repl_index=get_replication_index(grp_nchannels(common,groupindex)))== (grp_current(common, groupindex)) );
-
-                        printf("\n\nIn BACKWARD; GOT Index: %d    Rep_Index: %d\n",(grp_current(common, groupindex)),repl_index);
+                       // while((repl_index=get_replication_index(grp_nchannels(common,groupindex)))== (grp_current(common, groupindex)) );
+			while((repl_index=get_replication_index(grp_nchannels(common,groupindex)))== current_original_channel);
+                        printf("\n\nIn BACKWARD; GOT Index: %d    Rep_Index: %d\n",current_original_channel,repl_index);
+			current_original_channel=-1;
 
                         if( (repl_socket=get_replicated_socket(groupindex,repl_index)) < 0 ){
                                 fprintf(stdout,"\n\n Error while getting the repl_socket \n\n");
@@ -2551,7 +2552,9 @@ connect_timeout = DEFAULTTIMEOUT;
 	      (chn_maxc(common, groupindex, index) == 0 ||
 	       (chn_c(common, groupindex, index) <
 		chn_maxc(common, groupindex, index)))) {
+		current_original_channel=index;
 	    break;		// channel found
+		
 	  } else {
 	    index++;
 	    if (index >= grp_nchannels(common, groupindex)) {
@@ -2664,7 +2667,9 @@ connect_timeout = DEFAULTTIMEOUT;
       } else if (childpid == 0) {	// child process
 	close(sockfd);			// close original socket
 	// process the request:
-
+	//CloudAttest - Here we save the index as current_original_channel
+//	current_original_channel=index;
+	fprintf(stdout,"\n\nBefore Calling Stream with index: %d , we have current_original_channel = %d\n\n",index,current_original_channel);
 	stream(newsockfd, groupindex, index, (char *) &cli_addr, clilen);
 	exit(EX_OK);
       }
