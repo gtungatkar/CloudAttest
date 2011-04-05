@@ -734,8 +734,9 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
   unsigned char repl_buffer[MAXTXSIZE];
   unsigned char *needle;
   int repl_index, repl_socket;
-  int repl_fd;
-
+  int repl_fd; 
+  int tmp=-10; 
+ 
   rc = read(fromfd, buffer, MAXTXSIZE);
 
 
@@ -767,9 +768,10 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
                              return -1;
                      }
                      //Writing Response to file
-		     file_the_response(needle,(rc=(rc-(needle-buffer))),1);
+		     tmp = rc-(needle-buffer);
+		     file_the_response(needle,tmp,1);
 		     RESPONSE_REPL = 1; // set flag
-		     content_length -= rc;
+		     content_length -= tmp;
 		    fprintf(stdout,"\n\nCONTENT-LENGTH: %d\n\n",content_length);
 
                 }
