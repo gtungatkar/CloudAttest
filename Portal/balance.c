@@ -609,7 +609,8 @@ int forward(int fromfd, int tofd, int groupindex, int channelindex)
   rc = read(fromfd, buffer, MAXTXSIZE);
 
   if (packetdump) {
-    printf("-> %d\n", (int) rc);
+    printf("\nBuffer Size: %d\n", (int) rc);
+    printf("\nThe Packet data in Forward:\n---------------------------------------------------------------------------\n");
     print_packet(buffer, rc);
   }
 
@@ -702,7 +703,7 @@ int backward_rep(int fromfd, int tofd, int groupindex, int channelindex)
 
   if (1) {
     printf("-< %d\n", (int) rc);
-	printf("in REPLICATE#D RESPONSE:\n");
+	printf("in REPLICATED RESPONSE:\n");
     print_packet(buffer, rc);
   }
 	if(rc <= 0)
@@ -743,7 +744,8 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
 
   if (1) {
     printf("-< %d\n", (int) rc);
-	printf("in ORIGINAL RESPONSE:\n");
+	printf("The RESPONSE Received:\n");
+	printf("-------------------------------\n");
     print_packet(buffer, rc);
   }
 
@@ -757,11 +759,11 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
                     // dequeue(&cache);
                     if(repl_request)
                     {
-                            printf("Request::\n%s", repl_request->http_request);
+                            printf("The Buffered Request:\n---------------------------\n%s", repl_request->http_request);
                     }
                      //Parse to get content length
                      content_length = parse_content_length((char *)buffer);
-                     fprintf(stdout,"\n\nCONTENT-LENGTH: %d\n\n",content_length);
+                     fprintf(stdout,"\n\nCONTENT-LENGTH of the Packet: %d\n\n",content_length);
 		     if(content_length == -1)
                      {
                              fprintf(stderr, "error in parse_content_length");
@@ -772,7 +774,7 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
 		     file_the_response(needle,tmp,1);
 		     RESPONSE_REPL = 1; // set flag
 		     content_length -= tmp;
-		    fprintf(stdout,"\n\nCONTENT-LENGTH: %d\n\n",content_length);
+		   // fprintf(stdout,"\n\nCONTENT-LENGTH: %d\n\n",content_length);
 
                 }
 
@@ -812,7 +814,7 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
 
 
 	        if(content_length == 0){
-                        fprintf(stdout,"\n\nCONTENT LENGTH IS NOW 0\n\n");
+                     //   fprintf(stdout,"\n\nCONTENT LENGTH IS NOW 0\n\n");
                    if(do_replication()==1)
                    {
                       if(grp_nchannels(common,groupindex)==1) // CloudAttest if the number of server channels is 1, give error that we cannot replicate :(
@@ -822,7 +824,7 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
                       else{
                        // while((repl_index=get_replication_index(grp_nchannels(common,groupindex)))== (grp_current(common, groupindex)) );
 			while((repl_index=get_replication_index(grp_nchannels(common,groupindex)))== current_original_channel);
-                        printf("\n\nIn BACKWARD; GOT Index: %d    Rep_Index: %d\n",current_original_channel,repl_index);
+                        printf("\n\nBACKWARD Flow to Client ; GOT Index: %d    Rep_Index: %d\n",current_original_channel,repl_index);
 			current_original_channel=-1;
 
                         if( (repl_socket=get_replicated_socket(groupindex,repl_index)) < 0 ){
@@ -830,7 +832,7 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
                         	exit(-1);
 				}
                         else {
-                                fprintf(stdout,"\n\n Replicated Socket = %d \n\n",repl_socket);
+                                fprintf(stdout,"\n\nReplicated Socket = %d \n\n",repl_socket);
                              //   exit(-1);
                         }
                         if(repl_request)
@@ -843,6 +845,7 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
                                         fprintf(stderr, "write to replicated\
                                                         socket failed\n");
                                 }
+				printf("\n---Writing the Response to File---\n---------------------------------------------\n");
                                 repl_fd = open("repl_resp.tmp", O_RDWR|O_CREAT|O_TRUNC,
                                                 0644);
                                 if(repl_fd < 0)
@@ -853,7 +856,7 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
 					if(!hdrflg)
 					{
 						needle = parse_response_packet(repl_buffer);
-						printf("NEEDLE : %s\n", needle);
+						//printf("NEEDLE : %s\n", needle);
 						if(needle){
 							hdrflg = 1;
 							partial = 1;
@@ -861,7 +864,7 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
 					}
 					if(partial)
 					{
-						printf("numbytes = %d\n", (needle - repl_buffer));
+						//printf("numbytes = %d\n", (needle - repl_buffer));
 						write(repl_fd, needle, retw -(needle - repl_buffer));
 						partial = 0;
 					}
@@ -1099,13 +1102,13 @@ int get_replicated_socket(int groupindex, int index) {
       //  printf("stream rep\n\n");
   startindex = index;
   //clientfd = arg;
-  fprintf(stdout,"\n\nINSIDE get_replicated_socket with %d grp index and %d index\n\n",groupindex, index);
+  fprintf(stdout,"\n\nCalling get_replicated_socket with %d grp index and %d index\n\n",groupindex, index);
 
   for(i=0; i<4; i++){
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
       err_dump("can't open stream socket");
     }
-	fprintf(stdout, "\n\nGot SOCKET : %d \n\n",sockfd);
+	fprintf(stdout, "\n\nSOCKET Acquired: %d \n\n",sockfd);
   }
 
   (void) setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &sockbufsize,
@@ -1120,7 +1123,8 @@ int get_replicated_socket(int groupindex, int index) {
     serv_addr.sin_addr.s_addr =
         chn_ipaddr(common, groupindex, index).s_addr;
     serv_addr.sin_port = htons(chn_port(common, groupindex, index));
-	printf("connecting to replicated server IP = %s\n", inet_ntoa(chn_ipaddr(common, groupindex, index)));
+	printf("Selecting and Connecting to Replicated server IP = %s\n", inet_ntoa(chn_ipaddr(common, groupindex, index)));
+	printf("----------------------------------------------------------------------\n");
  b_unlock();
 
   if (connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
