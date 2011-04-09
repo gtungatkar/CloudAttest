@@ -154,7 +154,9 @@ static struct wcache cache;
 static struct timeval sel_tmout  = { 0, 0 }; /* seconds, microseconds */
 static struct timeval save_tmout = { 0, 0 }; /* seconds, microseconds */
 int resp_fd=-3;
-
+char resp_buff[COMP_SIZE];
+char repl_buff[COMP_SIZE];
+int unmatch_count = 0;
 
 int create_serversocket(char* node, char* service) {
   struct addrinfo hints;
@@ -887,7 +889,46 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
                       }
 
                   }
+                
+		int size_ret_resp = 0;
+		int size_ret_repl = 0;
+
+		int response_fd = open("response.tmp", O_RDONLY);
+		int replc_fd =  open("repl_resp.tmp", O_RDONLY);
+		while((size_ret_resp = read(response_fd,resp_buff,COMP_SIZE)) > 0 )	
+		{
+			//printf("Entering Comparison Loop : Data bytes read : %d\n-----------------------------------------------",size_ret_resp);
+
+			size_ret_repl = read(replc_fd,repl_buff,size_ret_resp);
+			
+			printf("Entering Comparison Loop : Data bytes read : %d / %d\n-----------------------------------------------",size_ret_resp,size_ret_repl);
+			
+			if( size_ret_resp > 0 ) {
+                        if(memcmp(resp_buff, repl_buff, size_ret_resp) != 0 )
+                        {
+                                printf("\nThe respones do not match!");
+                                unmatch_count++;
+                        }
+			else{
+				printf("\nThe responses Match!");
+			} 
                 }
+
+		close(response_fd);
+		close(replc_fd);
+
+		}	
+
+
+
+
+
+
+
+
+
+
+	}
 
 
 
