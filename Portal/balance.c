@@ -146,6 +146,7 @@ static char *outbindhost = NULL;
 
 //CloudAttest
 static int content_length = 0;
+static int html_end_required = 0;
 static int RESPONSE_REPL = 0;
 static struct wcache_entry * repl_request;
 static struct wcache cache;
@@ -767,7 +768,10 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
 		     if(content_length == -1)
                      {
                              fprintf(stderr, "error in parse_content_length");
-                             return -1;
+                             //Content length is not present. So keep searching
+                             //for </html>
+                             html_end_required = 1;
+                            // return -1;
                      }
                      //Writing Response to file
 		     tmp = rc-(needle-buffer);
@@ -783,6 +787,12 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
               if(RESPONSE_REPL){ //not the start if the packet... write directly to the opened file 'resp_fd'
                 file_the_response(buffer,rc,0);
 		content_length -= rc;
+                if(html_end_required)
+                {
+                        if(strstr(buffer, "</html>"))
+                                content_length = 0;
+                
+                }
 /*		if(content_length == 0){
 			fprintf(stdout,"\n\nCONTENT LENGTH IS NOW 0\n\n");
 		   if(do_replication()==1)
