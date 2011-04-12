@@ -78,7 +78,7 @@
 #define MAXINPUTLINE 		128	/* max line in input mode         */
 #define DEFAULTTIMEOUT  	5	/* timeout for unreachable hosts  */
 #define DEFAULTSELTIMEOUT  	0 	/* timeout for select             */
-
+#define MAXNODES                10      /* CloudAttest: Max Graph Nodes*/
 
 typedef struct {
   int status;
@@ -102,11 +102,19 @@ typedef struct {
 } GROUP;
 
 typedef struct {
+        unsigned int consistent;
+        unsigned int inconsistent;
+}EDGE;
+
+typedef struct {
   int   release;
   int   subrelease;
   int   pid;
   GROUP groups[MAXGROUPS];
+  EDGE graph[MAXNODES][MAXNODES];
 } COMMON;
+
+
 
 char* packet_response_packet(unsigned char* );
 unsigned char file_the_response(unsigned char *packet, int packet_size,unsigned char flag);
@@ -136,6 +144,15 @@ int get_replication_index(int );
 #define chn_bsent(a,g,i)	 (grp_channel((a),(g),(i)).bsent)
 #define chn_breceived(a,g,i)	 (grp_channel((a),(g),(i)).breceived)
 
+#define cmn_graph_set_consistent(a,nodei,nodej)  {\
+        (a)->graph[(nodei)][(nodej)].consistent++; \
+        (a)->graph[(nodej)][(nodei)].consistent++; \
+}
+
+#define cmn_graph_set_inconsistent(a,nodei,nodej)  {\
+        (a)->graph[(nodei)][(nodej)].inconsistent++; \
+        (a)->graph[(nodej)][(nodei)].inconsistent++; \
+}
 /*
  * function prototypes
  */

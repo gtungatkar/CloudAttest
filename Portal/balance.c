@@ -108,6 +108,7 @@
 
 #include <balance.h>
 #include <stdlib.h>
+#include "crc32.h"
 const char *balance_rcsid = "$Id: balance.c,v 3.54 2010/12/03 12:47:10 t Exp $";
 static char *revision = "$Revision: 3.54 $";
 
@@ -150,6 +151,8 @@ static int html_end_required = 0;
 static int RESPONSE_REPL = 0;
 static struct wcache_entry * repl_request;
 static struct wcache cache;
+unsigned int orig_hash = 0;
+unsigned int repl_hash = 0;
 
 static struct timeval sel_tmout  = { 0, 0 }; /* seconds, microseconds */
 static struct timeval save_tmout = { 0, 0 }; /* seconds, microseconds */
@@ -651,66 +654,6 @@ int forward(int fromfd, int tofd, int groupindex, int channelindex)
 }
 
 
-int forward_rep(int fromfd, int tofd, int replfd, int groupindex,
-                int channelindex, int replindex)
-{
-  ssize_t rc;
-  unsigned char buffer[MAXTXSIZE];
-	printf("\nIn forward rep\n");
-  rc = read(fromfd, buffer, MAXTXSIZE);
-
-//  if (packetdump) {
-  if(0) {
-    printf("-> %d\n", (int) rc);
-    print_packet(buffer, rc);
-  }
-
-  if (rc <= 0) {
-    return (-1);
-  } else {
-    if (writen(tofd, buffer, rc) != rc) {
-      return (-1);
-    }
-    else
-	{
-		printf("\nORIGINAL DUMP\n");
-	    print_packet(buffer, rc);
-	}
-    if (writen(replfd, buffer, rc) != rc) {
-      //log FAILED TO REPLICATE
-	printf("ERROR in replication\n");
-    }
-    else
-	{
-		printf("\nREPLICATED DUMP\n");
-	    print_packet(buffer, rc);
-	}
-    c_writelock(groupindex, channelindex);
-    chn_bsent(common, groupindex, channelindex) += rc;
-    c_unlock(groupindex, channelindex);
-    c_writelock(groupindex, replindex);
-    chn_bsent(common, groupindex, replindex) += rc;
-    c_unlock(groupindex, replindex);
-  }
-  return (0);
-}
-
-int backward_rep(int fromfd, int tofd, int groupindex, int channelindex)
-{
-  ssize_t rc;
-  unsigned char buffer[MAXTXSIZE];
-
-  rc = read(fromfd, buffer, MAXTXSIZE);
-
-  if (1) {
-    printf("-< %d\n", (int) rc);
-	printf("in REPLICATED RESPONSE:\n");
-    print_packet(buffer, rc);
-  }
-	if(rc <= 0)
-		return -1;
- return 0;
-}
 
 
 //CloudAttest - Parse Response Packet Function
@@ -755,6 +698,7 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
   } else {
   //This says that rc has no ERROR
         if((needle=parse_response_packet(buffer))!=NULL){
+                orig_hash = 0;
                 if(is_request_replicated(&cache)){
                      repl_request = wcache_remove_first(&cache);  //Cache is the request queue.
                     // dequeue(&cache);
@@ -776,7 +720,11 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
                      //Writing Response to file
 		     tmp = rc-(needle-buffer);
 		     file_the_response(needle,tmp,1);
-		     RESPONSE_REPL = 1; // set flag
+
+                     /* Calculate incremental hash value of response*/
+                     orig_hash = crc32(needle, tmp, orig_hash);
+		  
+                     RESPONSE_REPL = 1; // set flag
 		     content_length -= tmp;
 		   // fprintf(stdout,"\n\nCONTENT-LENGTH: %d\n\n",content_length);
 
@@ -786,7 +734,11 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
         else{
               if(RESPONSE_REPL){ //not the start if the packet... write directly to the opened file 'resp_fd'
                 file_the_response(buffer,rc,0);
-		content_length -= rc;
+
+                /* Calculate incremental hash value of response*/
+                orig_hash = crc32(buffer, rc, orig_hash);
+		
+                content_length -= rc;
                 if(html_end_required)
                 {
                         if(strstr(buffer, "</html>"))
@@ -858,6 +810,7 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
 				printf("\n---Writing the Response to File---\n---------------------------------------------\n");
                                 repl_fd = open("repl_resp.tmp", O_RDWR|O_CREAT|O_TRUNC,
                                                 0644);
+                                repl_hash = 0;
                                 if(repl_fd < 0)
                                         fprintf(stderr, "error opening replicated file\n");
                                 while((retw = read(repl_socket, repl_buffer,
@@ -876,12 +829,37 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
 					{
 						//printf("numbytes = %d\n", (needle - repl_buffer));
 						write(repl_fd, needle, retw -(needle - repl_buffer));
+                                                repl_hash = crc32(needle,
+                                                                retw-(needle -
+                                                                        repl_buffer),
+                                                                repl_hash);
 						partial = 0;
 					}
 					else
+                                        {
 						write(repl_fd, repl_buffer, retw);
+                                                repl_hash = crc32(repl_buffer,
+                                                                retw, repl_hash);
+                                        }
                                 }
                                 close(repl_fd);
+
+                                printf("orig hash = %u\n repl hash = %u\n",
+                                                orig_hash, repl_hash);
+                                if(orig_hash == repl_hash)
+                                {
+                                        printf("incrementing consistent for\
+                                                        index %d & %d\n",
+                                                        channelindex, repl_index);
+                                        cmn_graph_set_consistent(common,channelindex,repl_index);  
+                                }
+                                else
+                                {
+                                        printf("incrementing INconsistent for\
+                                                        index %d & %d\n",
+                                                        channelindex, repl_index);
+                                        cmn_graph_set_inconsistent(common,channelindex,repl_index);  
+                                }
                         }
                          // stream(newsockfd, groupindex, index, (char *) &cli_addr, clilen);
                       }
@@ -971,109 +949,6 @@ void stream2(int clientfd, int serverfd, int groupindex, int channelindex)
     } else {
       if (backward(serverfd, clientfd, groupindex, channelindex) < 0) {
 	break;
-      }
-    }
-  }
-  c_writelock(groupindex, channelindex);
-  chn_c(common, groupindex, channelindex) -= 1;
-  c_unlock(groupindex, channelindex);
-  exit(EX_OK);
-}
-
-  /*CloudAttest*/
-void stream2_rep(int clientfd, int serverfd, int replfd, int groupindex,
-                int channelindex, int replindex)
-{
-  fd_set readfds;
-  int fdset_width;
-  int sr;
-  int optone = 1;
-  int largerfd = 0;
-  if(replfd > serverfd)
-          largerfd = replfd;
-  else
-          largerfd = serverfd;
-
-  fdset_width = ((clientfd > largerfd) ? clientfd : largerfd) + 1;
-
-  /* failure is acceptable */
-  (void) setsockopt(serverfd, IPPROTO_TCP, TCP_NODELAY,
-    (char *)&optone, (socklen_t)sizeof(optone));
-  (void) setsockopt(clientfd, IPPROTO_TCP, TCP_NODELAY,
-    (char *)&optone, (socklen_t)sizeof(optone));
-  (void) setsockopt(serverfd, SOL_SOCKET, SO_KEEPALIVE,
-    (char *)&optone, (socklen_t)sizeof(optone));
-  (void) setsockopt(clientfd, SOL_SOCKET, SO_KEEPALIVE,
-    (char *)&optone, (socklen_t)sizeof(optone));
-
-  /*CloudAttest*/
-  (void) setsockopt(clientfd, SOL_SOCKET, SO_KEEPALIVE,
-    (char *)&optone, (socklen_t)sizeof(optone));
-  (void) setsockopt(serverfd, SOL_SOCKET, SO_KEEPALIVE,
-    (char *)&optone, (socklen_t)sizeof(optone));
-  /*CloudAttest*/
-
-  for (;;) {
-
-    FD_ZERO(&readfds);
-    FD_SET(clientfd, &readfds);
-    FD_SET(serverfd, &readfds);
-
-  /*CloudAttest*/
-    FD_SET(replfd, &readfds);
-    /*
-     * just in case this system modifies the timeout values,
-     * refresh the values from a saved copy of them.
-     */
-    sel_tmout = save_tmout;
-
-    for (;;) {
-      if (sel_tmout.tv_sec || sel_tmout.tv_usec) {
-	sr = select(fdset_width, &readfds, NULL, NULL, &sel_tmout);
-      } else {
-	sr = select(fdset_width, &readfds, NULL, NULL, NULL);
-      }
-      if ((save_tmout.tv_sec || save_tmout.tv_usec) && !sr) {
-	c_writelock(groupindex, channelindex);
-	chn_c(common, groupindex, channelindex) -= 1;
-	c_unlock(groupindex, channelindex);
-	fprintf(stderr, "timed out after %d seconds\n",
-		(int) save_tmout.tv_sec);
-	exit(EX_UNAVAILABLE);
-      }
-      if (sr < 0 && errno != EINTR) {
-	c_writelock(groupindex, channelindex);
-	chn_c(common, groupindex, channelindex) -= 1;
-	c_unlock(groupindex, channelindex);
-	err_dump("select error");
-      }
-      if (sr > 0)
-	break;
-    }
-	printf("replfd = %d serverfd=%d client fd=%d \n", replfd, serverfd, clientfd);
-
-    if (FD_ISSET(clientfd, &readfds)) {
-        printf("\ncalling forward_repl\n");
-	if (forward_rep(clientfd, serverfd, replfd, groupindex, channelindex, replindex) < 0) {
-                    break;
-            }
-    }
-  /*CloudAttest*/
-    else if (FD_ISSET(replfd, &readfds)) {
-      if (backward_rep(replfd, clientfd, groupindex, channelindex) < 0) {
-            //backward path from replicated server back to portal
-            //Major logic of hash/signature and comparison between replicated
-            //and actual response should go here.
-	break;
-
-    }
-	printf("Replicated RESPONSE:\n");
-	}
-    if (FD_ISSET(serverfd, &readfds)){
-	printf("getting original response\n");
-      if (backward(serverfd, clientfd, groupindex, channelindex) < 0) {
-	break;
-
       }
     }
   }
@@ -1246,254 +1121,6 @@ int parse_content_length(char *packet){
         return -1;
 }
 
-//CloudAttest - adding argument index2 to function call
-void *stream_rep(int arg, int groupindex, int index, int index2, char *client_address,
-	     int client_address_size) {
-  int startindex;
-  int rpl_index; //CloudAttest
-  int sockfd;
-  int rpl_sockfd; //CloudAttest
-  int clientfd;
-  struct sigaction alrm_action;
-  struct sockaddr_in serv_addr, rpl_serv_addr; //CloudAttest Need to declare one more struture for holding the second connection.
-	printf("stream rep\n\n");
-  startindex = index;		// lets keep where we start...
-  clientfd = arg;
-  rpl_index = index2;   //CloudAttest Get the index of the required replicated server -> say index2
-  for (;;) {
-
-    if (debugflag) {
-      fprintf(stderr, "trying group %d channel %d ... ", groupindex,
-	      index);
-      fflush(stderr);
-    }
-
-    //CloudAttest Getting socket descriptor by the required command. New Socket -> rpl_sockfd
-    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-      err_dump("can't open stream socket");
-    }
-
-    if ((rpl_sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-      err_dump("can't open replicated stream socket");
-    }
-
-    //CloudAttest Set Socket Options -> for the particular socket descriptor. Should be replicated for the required socket descriptor rpl_sockfd
-    (void) setsockopt(rpl_sockfd, SOL_SOCKET, SO_SNDBUF, &sockbufsize,
-      sizeof(sockbufsize));
-    (void) setsockopt(rpl_sockfd, SOL_SOCKET, SO_RCVBUF, &sockbufsize,
-      sizeof(sockbufsize));
-
-
-    (void) setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &sockbufsize,
-      sizeof(sockbufsize));
-    (void) setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &sockbufsize,
-      sizeof(sockbufsize));
-
-    /*
-     *  if -B is specified, balance tries to bind to it even on
-     *  outgoing connections
-     */
-
-    //CloudAttest Required only for -B option variable option. To be tested if it can be ignored.
-    if (outbindhost != NULL) {
-      struct sockaddr_in outbind_addr;
-      bzero((char *) &outbind_addr, sizeof(outbind_addr));
-      outbind_addr.sin_family = AF_INET;
-      setipaddress(&outbind_addr.sin_addr, outbindhost);
-      if (bind
-	  (sockfd, (struct sockaddr *) &outbind_addr,
-	   sizeof(outbind_addr)) < 0) {
-      }
-    }
-
-    b_readlock();
-
-    bzero((char *) &serv_addr, sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_addr =
-	chn_ipaddr(common, groupindex, index).s_addr;
-    serv_addr.sin_port = htons(chn_port(common, groupindex, index));
-
-    //CloudAttest The following procedure is standard for creating socket at server side.
-    //CloudAttest Legacy function: The bzero() function shall place n zero-valued bytes in the area pointed to by s.
-    bzero((char *) &rpl_serv_addr, sizeof(rpl_serv_addr));
-    rpl_serv_addr.sin_family = AF_INET;
-    rpl_serv_addr.sin_addr.s_addr =
-        chn_ipaddr(common, groupindex, index2).s_addr;
-    rpl_serv_addr.sin_port = htons(chn_port(common, groupindex, index2));
-
-    b_unlock();
-
-    //CloudAttest Alarm System -> Error System Ignored for now.
-    alrm_action.sa_handler = alrm_handler;
-    alrm_action.sa_flags = 0;	// don't restart !
-    sigemptyset(&alrm_action.sa_mask);
-    sigaction(SIGALRM, &alrm_action, NULL);
-    alarm(connect_timeout);
-
-    //CloudAttest Code for connecting socket to replicated serv_addr goes here.
-    if (connect(rpl_sockfd, (struct sockaddr *) &rpl_serv_addr, sizeof(rpl_serv_addr)) < 0) {
-    fprintf(stderr, "Unable to connect the replicated stream socket.");
-    }
-
-    if (connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
-      if (debugflag) {
-	if (errno == EINTR) {
-	  fprintf(stderr, "timeout group %d channel %d\n", groupindex,
-		  index);
-	} else {
-	  fprintf(stderr, "connection refused group %d channel %d\n",
-		  groupindex, index);
-	}
-      }
-
-      /* here we've received an error (either 'timeout' or 'connection refused')
-       * let's start some magical failover mechanisms
-       */
-
-      c_writelock(groupindex, index);
-      chn_c(common, groupindex, index)--;
-      if(autodisable) {
-	if(chn_status(common, groupindex, index) != 0) {
-	  if(foreground) {
-	    fprintf(stderr, "connection failed group %d channel %d\n", groupindex, index);
-	    fprintf(stderr, "%s:%d needs to be enabled manually using balance -i after the problem is solved\n", inet_ntoa(serv_addr.sin_addr), ntohs(serv_addr.sin_port));
-	  } else {
-	      syslog(LOG_NOTICE,"connection failed group %d channel %d", groupindex, index);
-	      syslog(LOG_NOTICE,"%s:%d needs to be enabled manually using balance -i after the problem is solved", inet_ntoa(serv_addr.sin_addr), ntohs(serv_addr.sin_port));
-	  }
-	  chn_status(common, groupindex, index) = 0;
-	}
-      }
-      c_unlock(groupindex, index);
-
-      b_readlock();
-      for (;;) {
-	for (;;) {
-	  if (grp_type(common, groupindex) == GROUP_RR || hashfailover == 1) {
-	    index++;
-	    if (index >= grp_nchannels(common, groupindex)) {
-	      index = 0;
-	    }
-	    if (index == startindex) {
-	      index = -1;	// Giveup
-	      break;
-	    }
-	    if (chn_status(common, groupindex, index) == 1 &&
-		(chn_maxc(common, groupindex, index) == 0 ||
-		 (chn_c(common, groupindex, index) <
-		  chn_maxc(common, groupindex, index)))) {
-	      break;		// new index found
-	    } else {
-	      continue;
-	    }
-	  } else if (grp_type(common, groupindex) == GROUP_HASH) {
-
-	    // If the current group is type hash, we giveup immediately
-	    index = -1;
-	    break;
-	  } else {
-	    err_dump("PANIC: invalid group in stream()");
-	  }
-	}
-
-	if (index >= 0) {
-	  // neuer index in groupindex-group found...
-	  break;
-	} else {
-	again:
-	  groupindex++;
-	  if (groupindex >= MAXGROUPS) {
-	    // giveup, index=-1.
-	    break;
-	  } else {
-	    if (grp_type(common, groupindex) == GROUP_RR) {
-
-	      if (grp_nchannels(common, groupindex) > 0) {
-		index = grp_current(common, groupindex);
-		startindex = index;	// This fixes the "endless loop error"
-					// with all hosts being down and one
-					// in the last group... (from Anthony Baxter)
-	      } else {
-		goto again;
-	      }
-	      break;
-	    } else if (grp_type(common, groupindex) == GROUP_HASH) {
-	      unsigned int uindex;
-	      uindex = hash_fold((char*) &(((struct sockaddr_in6 *) &client_address)->sin6_addr), client_address_size);
-
-	      if (debugflag) {
-		fprintf(stderr, "HASH-method: fold returns %u\n", uindex);
-              }
-
-	      index = uindex % grp_nchannels(common, groupindex);
-	      if (debugflag)
-		fprintf(stderr, "modulo %d gives %d\n",
-			grp_nchannels(common, groupindex), index);
-
-	      if (chn_status(common, groupindex, index) == 1 &&
-		  (chn_maxc(common, groupindex, index) == 0 ||
-		   (chn_c(common, groupindex, index) <
-		    chn_maxc(common, groupindex, index)))
-		  ) {
-		break;
-	      } else {
-		goto again;	// next group !
-	      }
-	    } else {
-	      err_dump("PANIC: invalid group in stream()");
-	    }
-	  }
-	}
-      }
-      // we drop out here with a new index
-
-      b_unlock();
-
-      if (index >= 0) {
-	// lets try it again
-	close(sockfd);
-	c_writelock(groupindex, index);
-	chn_c(common, groupindex, index) += 1;
-	chn_tc(common, groupindex, index) += 1;
-	c_unlock(groupindex, index);
-	continue;
-      } else {
-	break;
-      }
-
-    } else {
-      alarm(0);			// Cancel the alarm since we successfully connected
-      if (debugflag) {
-	fprintf(stderr, "connect to channel %d successful\n", index);
-      }
-      // this prevents the 'channel 2 overload problem'
-
-      b_writelock();
-      grp_current(common, groupindex) = index;
-      grp_current(common, groupindex)++;
-      if (grp_current(common, groupindex) >=
-	  grp_nchannels(common, groupindex)) {
-	grp_current(common, groupindex) = 0;
-      }
-      b_unlock();
-
-      // everything's fine ...
-
-      //stream2(clientfd, sockfd, groupindex, index);
-      // stream2 bekommt den Channel-Index mit
-      // stream2 never returns, but just in case...
-
-      //CloudAttest Connect the replicated socket using Stream2
-	printf("calling stream2_rep\n");
-      stream2_rep(clientfd, sockfd, rpl_sockfd, groupindex, index, index2);
-      break;
-    }
-  }
-
-  close(sockfd);
-  exit(EX_OK);
-}
 
 //CloudAttest --- The original stream function
 void *stream(int arg, int groupindex, int index, char *client_address,
