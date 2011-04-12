@@ -66,6 +66,7 @@
 #define Prob 1
 #define MAXTXSIZE 	(32*1024)
 #define FILENAMELEN 	1024
+#define COMP_SIZE 	4095
 /*
  * this should be a directory that isn't cleaned up periodically, or at
  * reboot of the machine (/tmp is cleaned at reboot on many OS versions)
