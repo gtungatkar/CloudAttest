@@ -156,7 +156,7 @@ static struct timeval save_tmout = { 0, 0 }; /* seconds, microseconds */
 int resp_fd=-3;
 char resp_buff[COMP_SIZE];
 char repl_buff[COMP_SIZE];
-int unmatch_count = 0;
+static int unmatch_count = 0;
 
 int create_serversocket(char* node, char* service) {
   struct addrinfo hints;
@@ -769,7 +769,7 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
                      fprintf(stdout,"\n\nCONTENT-LENGTH of the Packet: %d\n\n",content_length);
 		     if(content_length == -1)
                      {
-                             fprintf(stderr, "error in parse_content_length");
+                             fprintf(stdout, "error in parse_content_length");
                              //Content length is not present. So keep searching
                              //for </html>
                              html_end_required = 1;
@@ -791,8 +791,11 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
 		content_length -= rc;
                 if(html_end_required)
                 {
-                        if(strstr(buffer, "</html>"))
+                        if(strstr(buffer, "</html>")){
                                 content_length = 0;
+				 fprintf(stdout, "Checked with HTML");
+
+			}
                 
                 }
 /*		if(content_length == 0){
@@ -906,8 +909,9 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
 			if( size_ret_resp > 0 ) {
                         if(memcmp(resp_buff, repl_buff, size_ret_resp) != 0 )
                         {
-                                printf("\nThe respones do not match!");
+                               
                                 unmatch_count++;
+				printf("\nThe respones do not match!:: UNMATCH COUNT : %d",unmatch_count);
                         }
 			else{
 				printf("\nThe responses Match!");
