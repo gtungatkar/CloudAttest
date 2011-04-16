@@ -154,6 +154,8 @@ int get_replication_index(int );
         (a)->graph[(nodei)][(nodej)].inconsistent++; \
         (a)->graph[(nodej)][(nodei)].inconsistent++; \
 }
+#define cmn_graph_get_consistent(a,nodei, nodej) ((a)->graph[(nodei)][(nodej)].consistent)
+#define cmn_graph_get_inconsistent(a,nodei, nodej) ((a)->graph[(nodei)][(nodej)].inconsistent)
 /*
  * function prototypes
  */

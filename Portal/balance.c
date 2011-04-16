@@ -343,6 +343,12 @@ void *shm_malloc(char *file, int size)
 
     strcpy(shmfile, file);
     strcat(shmfile, SHMFILESUFFIX);
+	if(remove(file) < 0 ){
+		printf("\nCannot remove shared file");
+	}
+	else {
+		printf("\nRemoved shared file.");
+	}
     shmfilefd = open(shmfile, O_RDWR | O_CREAT, 0644);
     if(shmfilefd < 0) {
       fprintf(stderr, "Warning: Cannot open file `%s', switching to IPC\n", shmfile);
@@ -853,17 +859,19 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
                                                 orig_hash, repl_hash);
                                 if(orig_hash == repl_hash)
                                 {
-                                        printf("incrementing consistent for\
-                                                        index %d & %d\n",
-                                                        channelindex, repl_index);
                                         cmn_graph_set_consistent(common,channelindex,repl_index);  
+                                        printf("incrementing consistent for\
+                                                        index %d & %d ::c  = %d ic = %d\n",
+                                                        channelindex, repl_index, cmn_graph_get_consistent(common,channelindex,repl_index),
+							cmn_graph_get_inconsistent(common,channelindex,repl_index));
                                 }
                                 else
                                 {
-                                        printf("incrementing INconsistent for\
-                                                        index %d & %d\n",
-                                                        channelindex, repl_index);
                                         cmn_graph_set_inconsistent(common,channelindex,repl_index);  
+                                        printf("incrementing INconsistent for\
+                                                        index %d & %d ::c  = %d ic = %d\n",
+                                                        channelindex, repl_index, cmn_graph_get_consistent(common,channelindex,repl_index),
+							cmn_graph_get_inconsistent(common,channelindex,repl_index));
                                 }
                         }
                          // stream(newsockfd, groupindex, index, (char *) &cli_addr, clilen);
@@ -1509,7 +1517,7 @@ COMMON *makecommon(int argc, char **argv, int source_port)
     fprintf(stderr, "cannot alloc COMMON struct\n");
     exit(EX_OSERR);
   }
-
+	memset(mycommon, 0, sizeof(mycommon) );
   mycommon->pid = getpid();
   mycommon->release = release;
   mycommon->subrelease = subrelease;
@@ -2182,6 +2190,7 @@ connect_timeout = DEFAULTTIMEOUT;
       fprintf(stderr, "cannot alloc COMMON struct\n");
       exit(EX_OSERR);
     }
+	memset(common, 0, sizeof(common));
     shell(argument);
   }
 
@@ -2201,6 +2210,7 @@ connect_timeout = DEFAULTTIMEOUT;
   }
 
   common = makecommon(argc, argv, source_port);
+	memset(common, 0, sizeof(common));
 
   for (;;) {
     int index;
