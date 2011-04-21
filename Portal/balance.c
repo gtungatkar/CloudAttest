@@ -109,6 +109,7 @@
 #include <balance.h>
 #include <stdlib.h>
 #include "crc32.h"
+#include "listener.h"
 const char *balance_rcsid = "$Id: balance.c,v 3.54 2010/12/03 12:47:10 t Exp $";
 static char *revision = "$Revision: 3.54 $";
 
@@ -1996,8 +1997,11 @@ int main(int argc, char *argv[])
   struct stat buffer;
   struct sockaddr_storage cli_addr;
   struct sigaction usr1_action, chld_action;
-
+  struct listener_cfg *cfg = (struct listener_cfg*)malloc(
+                  sizeof(struct listener_cfg));
+  cfg->listen_port = 8800;
   //index for replication- CloudAttest
+  int pid;
   int rep_index;
 #ifdef BalanceBSD
 #else
@@ -2013,6 +2017,12 @@ int main(int argc, char *argv[])
 else{
   fprintf(stdout, "Initial File opened successfully.");
 }
+      pid = fork();
+      if(pid == 0)
+        {
+        connection_handler(cfg);
+        return 0;
+        }
 connect_timeout = DEFAULTTIMEOUT;
   initialize_release_variables();
 
