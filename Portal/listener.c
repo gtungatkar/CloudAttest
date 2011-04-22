@@ -17,8 +17,8 @@
 #include "crc32.h"
 #include "log.h"
 
-#define MAX_BUFFER 4096
 #define PENDING_CONN 10
+<<<<<<< HEAD
 int get_ipaddr(char *ipaddr, char *buffer)
 {
         int i = 0;
@@ -47,6 +47,9 @@ int get_replication_status(char ipaddr, int *other_svr)
         return -1;
 }
 #endif
+=======
+extern int aplcn_svr_response_check(int new_fd); 
+>>>>>>> dc259fe7ee8fec6dcba51c0a43baa846638f072b
 int connection_handler(struct listener_cfg *cfg)
 {
         int listen_fd, new_fd, set = 1;
@@ -54,12 +57,6 @@ int connection_handler(struct listener_cfg *cfg)
         socklen_t addr_len = 0;
         pid_t pid;
         char p[50];
-        char buffer[MAX_BUFFER];
-        int firstbuf = 0;
-        int rc, iplen, index = -1;
-        char ipaddr[16];
-        int replication_status = 0;
-        unsigned int hash = 0;
         assert(cfg != NULL);
         /* Standard server side socket sequence*/
 
@@ -105,43 +102,8 @@ int connection_handler(struct listener_cfg *cfg)
                         return -1;
                 
                 }
-                firstbuf = 0;
-                hash = 0;
                 LOG(stdout, "new connection accepted\n");
-                while(read(new_fd, buffer, MAX_BUFFER) > 0)
-                {
-                        printf("TESTING AS CHECKPOINTING: %s\n", buffer);
-                        //first packet 
-                        if(firstbuf == 0)
-                        {
-                                iplen = get_ipaddr(ipaddr, buffer);
-                             //   index = get_replication_status(ipaddr);//TODO
-                                if(index == -1)
-                                {       
-                                        //do nothing. Not replicated. Just drop
-                                        //these packets
-
-                                        replication_status = 0;
-                                }
-                                else
-                                {
-                                        hash = crc32(buffer+iplen, rc-iplen, hash);
-                                        replication_status = 1;
-                                }
-                                firstbuf = 1;
-                        }
-                        //rest of the packets; interesting only if replication =
-                        //1
-                        else
-                        {
-                                if(replication_status)
-                                {
-                                        hash = crc32(buffer, rc, hash);
-                                }
-                        
-                        }
-
-                }
+                aplcn_svr_response_check(new_fd);
                 //fork a new process to handle this request
 #if 0
                 if((pid = fork()) == -1)
