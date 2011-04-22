@@ -108,11 +108,20 @@ typedef struct {
 }EDGE;
 
 typedef struct {
+        char ws[16];
+        char as[16];
+}SERVER_MAP;
+
+typedef struct {
   int   release;
   int   subrelease;
   int   pid;
   GROUP groups[MAXGROUPS];
   EDGE graph[MAXNODES][MAXNODES];
+  SERVER_MAP topology[MAXNODES];   /*mapping of aplcn servers and web servers*/
+  int aplcn_svr_replcn_map[MAXNODES][MAXNODES]; /*replication between which 2
+                                                  servers?*/ 
+  unsigned int aplcn_svr_hash[MAXNODES]; /*store hash value of response*/
 } COMMON;
 
 
@@ -145,6 +154,12 @@ int get_replication_index(int );
 #define chn_bsent(a,g,i)	 (grp_channel((a),(g),(i)).bsent)
 #define chn_breceived(a,g,i)	 (grp_channel((a),(g),(i)).breceived)
 
+#define cmn_aplcn_svr_map(a,nodei,nodej)  ((a)->aplcn_svr_replcn_map[(nodei)][(nodej)])
+
+#define cmn_topology(a, i) ((a)->topology[i])
+
+#define cmn_aplcn_svr_hash(a, i) ((a)->aplcn_svr_hash[i])
+
 #define cmn_graph_set_consistent(a,nodei,nodej)  {\
         (a)->graph[(nodei)][(nodej)].consistent++; \
         (a)->graph[(nodej)][(nodei)].consistent++; \
@@ -156,6 +171,10 @@ int get_replication_index(int );
 }
 #define cmn_graph_get_consistent(a,nodei, nodej) ((a)->graph[(nodei)][(nodej)].consistent)
 #define cmn_graph_get_inconsistent(a,nodei, nodej) ((a)->graph[(nodei)][(nodej)].inconsistent)
+
+
+#define MAX_IPADDR_LEN 16
+
 /*
  * function prototypes
  */
