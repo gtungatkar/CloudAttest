@@ -73,6 +73,7 @@ int connection_handler(struct listener_cfg *cfg)
                 
                 }
                 LOG(stdout, "new connection accepted\n");
+		aplcn_svr_response_check(new_fd);
                 //fork a new process to handle this request
 #if 0
                 if((pid = fork()) == -1)
