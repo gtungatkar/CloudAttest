@@ -162,6 +162,18 @@ char resp_buff[COMP_SIZE];
 char repl_buff[COMP_SIZE];
 static int unmatch_count = 0;
 
+int get_server_index(char *ipaddr)
+{
+        int i = 0;
+        for(i = 0; i < MAXNODES; i++)
+        {
+                if(strcmp((cmn_topology(common, i).as), ipaddr) == 0)
+                {
+                        return i;
+                }
+        }
+        return -1;
+}
 int create_serversocket(char* node, char* service) {
   struct addrinfo hints;
   struct addrinfo *results;
@@ -2385,4 +2397,117 @@ connect_timeout = DEFAULTTIMEOUT;
 
     close(newsockfd);		// parent process
   }
+}
+int get_ipaddr(char *ipaddr, unsigned char *buffer)
+{
+        int i = 0;
+        while(buffer[i] != '\n')
+        {
+                ipaddr[i] = buffer[i];
+                i++;
+                if(i > MAX_IPADDR_LEN)
+                        break;
+        }
+        ipaddr[i] = '\0';
+        printf("ipaddr of the AS = %s\n", ipaddr);
+        return i;
+}
+int get_replication_status(char *ipaddr, int *other_svr)
+{
+        int i = 0;
+        int index = get_server_index(ipaddr);
+        if(index == -1)
+                return -1;
+        while(i < MAXNODES)
+        {
+                if((cmn_aplcn_svr_map(common,index,i)) > 0)
+                {
+                        *other_svr = i; 
+                        return index;
+                }
+                i++;
+        }
+        return -1;
+}
+
+
+int aplcn_svr_response_check(int new_fd)
+{
+#define MAX_BUFFER 4096
+
+                int firstbuf = 0;
+                unsigned int hash = 0, other_hash = 0;
+                unsigned char buffer[MAX_BUFFER];
+                int rc, iplen, index = -1;
+                char ipaddr[MAX_IPADDR_LEN];
+                int replication_status = 0;
+                int other_svr;
+                while(read(new_fd, buffer, MAX_BUFFER) > 0)
+                {
+                        printf("TESTING AS CHECKPOINTING: %s\n", buffer);
+                        //first packet 
+                        if(firstbuf == 0)
+                        {
+                                iplen = get_ipaddr(ipaddr, buffer);
+                             //   index = get_replication_status(ipaddr, other_svr);//TODO
+                                if(index == -1)
+                                {       
+                                        //do nothing. Not replicated. Just drop
+                                        //these packets
+
+                                        replication_status = 0;
+                                }
+                                else
+                                {
+                                        hash = crc32(buffer+iplen, rc-iplen, hash);
+                                        replication_status = 1;
+                                }
+                                firstbuf = 1;
+                        }
+                        //rest of the packets; interesting only if replication =
+                        //1
+                        else
+                        {
+                                if(replication_status)
+                                {
+                                        hash = crc32(buffer, rc, hash);
+                                }
+                        
+                        }
+
+                }
+                if(replication_status)
+                {
+                        if((cmn_aplcn_svr_hash(common, index) == 0) &&
+                                        (cmn_aplcn_svr_hash(common, other_svr) == 0))
+                        {
+                                //both entries are 0..this is the first hash.
+                                //store and wait for second hash
+                                cmn_aplcn_svr_hash(common, index) = hash;
+                        }
+                        else
+                        {
+                                if((other_hash = cmn_aplcn_svr_hash(common, index))
+                                                == 0)
+                                        other_hash = cmn_aplcn_svr_hash(common,
+                                                        other_svr);
+                                if(hash == other_hash)
+                                {
+                                        printf("hash match\n");                //update matrix
+                                }
+                                else
+                                {
+                                        //update non-matching count
+                                        printf("hash does not match\n");                //update matrix
+                                }
+                                //reset all entries
+                                cmn_aplcn_svr_hash(common, index) = 0;
+                                cmn_aplcn_svr_hash(common, other_svr) = 0;
+                                cmn_aplcn_svr_map(common,index,other_svr) = 0;
+                                cmn_aplcn_svr_map(common,other_svr,index) = 0;
+                        }
+
+
+                }
+                return 0;
 }
