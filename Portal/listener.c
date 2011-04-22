@@ -22,7 +22,7 @@
 int get_ipaddr(char *ipaddr, char *buffer)
 {
         int i = 0;
-        while(buffer[i] != '\n')
+        while(buffer[i] != '#')
         {
                 ipaddr[i] = buffer[i];
                 i++;
@@ -56,7 +56,7 @@ int connection_handler(struct listener_cfg *cfg)
         char p[50];
         char buffer[MAX_BUFFER];
         int firstbuf = 0;
-        int rc, iplen, index = -1;
+        int rc, iplen = 0, index = -1;
         char ipaddr[16];
         int replication_status = 0;
         unsigned int hash = 0;
@@ -98,6 +98,7 @@ int connection_handler(struct listener_cfg *cfg)
         {
 
                 new_fd = accept(listen_fd, (struct sockaddr*)&client_addr, &addr_len);
+		rc = 0;
                 if(new_fd == -1)
                 {
                         //log
@@ -108,9 +109,11 @@ int connection_handler(struct listener_cfg *cfg)
                 firstbuf = 0;
                 hash = 0;
                 LOG(stdout, "new connection accepted\n");
-                while(read(new_fd, buffer, MAX_BUFFER) > 0)
+                while((rc = read(new_fd, buffer, MAX_BUFFER)) > 0)
                 {
-                        printf("TESTING AS CHECKPOINTING: %s\n", buffer);
+			buffer[rc+1] = '\0';
+                        printf("TESTING AS CHECKPOINTING:bytes received = %d DATA= %s \n",rc, buffer);
+			printf("--------------------------------------------------------------\n");
                         //first packet 
                         if(firstbuf == 0)
                         {
@@ -165,7 +168,7 @@ int connection_handler(struct listener_cfg *cfg)
 #endif 
 
         }
-
+	printf("CONNECTION HANDLER EXITING\n");
         return 0;
 
 }

@@ -699,7 +699,7 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
     printf("-< %d\n", (int) rc);
 	printf("The RESPONSE Received:\n");
 	printf("-------------------------------\n");
-    print_packet(buffer, rc);
+   // print_packet(buffer, rc);
   }
 
   if (rc <= 0) {
@@ -713,7 +713,7 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
                     // dequeue(&cache);
                     if(repl_request)
                     {
-                            printf("The Buffered Request:\n---------------------------\n%s", repl_request->http_request);
+                           // printf("The Buffered Request:\n---------------------------\n%s", repl_request->http_request);
                     }
                      //Parse to get content length
                      content_length = parse_content_length((char *)buffer);
@@ -2023,6 +2023,7 @@ else{
         connection_handler(cfg);
         return 0;
         }
+	printf("IN PARENT \n");
 connect_timeout = DEFAULTTIMEOUT;
   initialize_release_variables();
 
