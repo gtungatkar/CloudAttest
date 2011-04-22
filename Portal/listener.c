@@ -64,7 +64,6 @@ int connection_handler(struct listener_cfg *cfg)
         {
 
                 new_fd = accept(listen_fd, (struct sockaddr*)&client_addr, &addr_len);
-		rc = 0;
                 if(new_fd == -1)
                 {
                         //log
@@ -73,7 +72,7 @@ int connection_handler(struct listener_cfg *cfg)
                 
                 }
                 LOG(stdout, "new connection accepted\n");
-		aplcn_svr_response_check(new_fd);
+                aplcn_svr_response_check(new_fd);
                 //fork a new process to handle this request
 #if 0
                 if((pid = fork()) == -1)
@@ -97,7 +96,7 @@ int connection_handler(struct listener_cfg *cfg)
 #endif 
 
         }
-	printf("CONNECTION HANDLER EXITING\n");
+
         return 0;
 
 }
