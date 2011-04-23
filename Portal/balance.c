@@ -163,6 +163,8 @@ char resp_buff[COMP_SIZE];
 char repl_buff[COMP_SIZE];
 static int unmatch_count = 0;
 
+int channel_count;
+
 int get_server_index(char *ipaddr)
 {
         int i = 0;
@@ -1601,8 +1603,12 @@ COMMON *makecommon(int argc, char **argv, int source_port)
       }
     }
   }
-
-  b_unlock();
+	
+  channel_count=grp_nchannels(mycommon, group);	
+	fprintf(stdout,"No of channels: %d\n",channel_count);
+  	display();
+	
+	b_unlock();
   return (mycommon);
 }
 
@@ -2021,7 +2027,7 @@ int main(int argc, char *argv[])
   struct rlimit r;
 #endif
 
-
+///	display();
   //open the file response.tmp for further use
   if( (resp_fd=open("response.tmp",O_CREAT,S_IRWXU)) < 0 ){
 	fprintf(stdout, "Initial File open Error." );
@@ -2235,6 +2241,8 @@ connect_timeout = DEFAULTTIMEOUT;
 
   common = makecommon(argc, argv, source_port);
 	memset(common, 0, sizeof(common));
+
+display();
 
   for (;;) {
     int index;

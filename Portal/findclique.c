@@ -1,16 +1,28 @@
-
+#include <stdio.h>
 //COMMON *common from balance.c
+extern int channel_count;
 void find_clique()
 {
-	int P[20],R[20],X[20],CL[20][20],cl_b[20],malicious[20];
+	int *P,*R,*X,*CL,*cl_b,*malicious;
+	P=(int)malloc(channel_count*sizeof(int));
+	R=(int)malloc(channel_count*sizeof(int));
+	X=(int)malloc(channel_count*sizeof(int));
+	cl_b=(int)malloc(channel_count*sizeof(int));
+	malicious=(int)malloc(channel_count*sizeof(int));
+	CL=(int*)malloc(channel_count*channel_count*sizeof(int));
+	
+	
 	int i,j,pivot,rcnt=0,xcnt=0,clcnt=0,clbcnt=0,malcnt=0;
-	for(i = 0;i < 20;i ++)
+
+	//Initialize the all arrays to -1.
+	for(i = 0;i < channel_count;i ++)
 	{
 		P[i]=R[i]=X[i]=-1;
-		for(j=0;j<20;j++)
+		for(j=0;j<channel_count;j++)
 			CL[i][j]=-1;
 	}
 
+	
 	//X contains already processed nodes
 	//P contains candidate node list.. in our case.. server's Channelindex
 	P[0] = 0;
@@ -33,6 +45,8 @@ void find_clique()
 			}
 		}
 		i++;
+
+
 	}
 
 	//Now inserting nodes from R into X as they have been processed
@@ -49,6 +63,10 @@ void find_clique()
 	//Finally R contains the Maximal Cliques.. each iteration may produce a clique in R
 	
 	//Now, once we have the cliques, we need to find malicious nodes ...
+
+	
+
+
 	for(i=0;i<clcnt;i++)
 	{
 		//To find those maximal cliques with size > Total Nodes in Graph / 2
@@ -97,8 +115,106 @@ void find_clique()
 
 }
 
+int sizeofR(int R[])
+{
+int i=0, count=0;
+        for(i=0; i<channel_count; i++) {
+                if(R[i] != -1 ){
+                        count++;
+                }
+        }
+return count;
+}
 
-int empty_P(int P[]){
+
+
+void FindConsistencyClique(int R[], int P[], int X[] ){
+	
+
+	int i = 0;
+	if( is_empty(P) && is_empty(X) && (sizeofR(R)>1) )
+	{
+		//Report R as Maximal Clique
+	}
+	else
+	{
+		//Select Pivot Node K
+		for(i=0; i<channel_count; i++)
+		{
+			if(is_neighbour(K,i))
+			{
+				subtract_element(P,i);
+				union_element(R,i);
+				find_common_elements(P,N,new);
+				find_common_elements(X,N,'new');
+				FindConsistencyClique(R, new, 'new');
+				union_elements(X,i);	
+			}
+
+		}
+	}
+}
+
+
+int is_neighbour(int i,int j){
+	
+	if(common->graph[i][j] != 0 && common->graph[j][i] != 0){
+		return 1;
+
+	}
+	return 0;
+}
+
+
+void find_neghbor_set(int curr, int N[])
+{
+	int i,ncnt = 0;
+	for(i = 0; i<channel_count ; i++)
+	{
+		if(i!=curr)
+		{
+			if(common->graph[i][curr]!=0 && common->graph[curr][i] != 0)  //putting neighbors of curr in N[]
+			{
+				N[i] = i;
+			}
+			else{   
+				N[i] = -1;
+			}
+		}
+		else{
+			N[i] = -1;
+			
+		}
+	}
+}
+
+
+void find_common_elements(int N1[], int N2[], int new[])
+{
+	int i,new_cnt = 0;
+	for(i = 0;i < channel_count;i ++)
+	{
+		if(N1[i] == N2[i]) //found intersection between N1 and N2
+			new[i] = i;
+	}
+}
+
+
+void subtract_element(int P[], int i){
+
+	P[i] = -1;
+
+}
+
+void union_element(int R[], int i){
+
+	if(R[i] != -1){
+		R[i] = i;
+	}
+
+}
+
+int is_empty(int P[]){
 int i;
 	for(i=0;i<20;i++)
 	{
@@ -109,5 +225,13 @@ int i;
 	}
 	
 	return 1;
+
+}
+
+
+//extern int channel_count;
+int display(){
+
+printf("\nInDisplay: No of channels: %d\n",channel_count);
 
 }
