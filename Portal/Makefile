@@ -43,6 +43,8 @@ crc32.o: crc32.c crc32.h
 listener.o: listener.c listener.h
 	$(CC) $(CFLAGS) -I. -c listener.c
 
+listener.o: file_parser.c file_parser.h
+	$(CC) $(CFLAGS) -I. -c file_parser.c
 
 balance.pdf: balance.ps
 	ps2pdf balance.ps balance.pdf	
