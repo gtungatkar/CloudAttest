@@ -2402,7 +2402,7 @@ connect_timeout = DEFAULTTIMEOUT;
 int get_ipaddr(char *ipaddr, unsigned char *buffer)
 {
         int i = 0;
-        while(buffer[i] != '\n')
+        while(buffer[i] != '#')
         {
                 ipaddr[i] = buffer[i];
                 i++;

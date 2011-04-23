@@ -18,38 +18,7 @@
 #include "log.h"
 
 #define PENDING_CONN 10
-<<<<<<< HEAD
-int get_ipaddr(char *ipaddr, char *buffer)
-{
-        int i = 0;
-        while(buffer[i] != '#')
-        {
-                ipaddr[i] = buffer[i];
-                i++;
-        }
-        ipaddr[i] = '\0';
-        printf("ipaddr of the AS = %s\n", ipaddr);
-        return i;
-}
-//TODO
-#if 0
-int get_replication_status(char ipaddr, int *other_svr)
-{
-        int index = get_server_index(ipaddr);
-        while(columnsize)
-        {
-                if((replication_matrix[index][i]) > 0)
-                {
-                        *other_svr = i; 
-                        return index;
-                }
-        }
-        return -1;
-}
-#endif
-=======
 extern int aplcn_svr_response_check(int new_fd); 
->>>>>>> dc259fe7ee8fec6dcba51c0a43baa846638f072b
 int connection_handler(struct listener_cfg *cfg)
 {
         int listen_fd, new_fd, set = 1;
