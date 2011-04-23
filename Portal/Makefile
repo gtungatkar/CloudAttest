@@ -25,8 +25,8 @@ RELEASE=3.54
 
 all: balance 
 
-balance: balance.o butils.o wcache.o crc32.o listener.o
-	$(CC) $(CFLAGS) -I. -o balance balance.o butils.o wcache.o crc32.o listener.o $(LIBRARIES)
+balance: balance.o butils.o wcache.o crc32.o listener.o file_parser.o
+	$(CC) $(CFLAGS) -I. -o balance balance.o butils.o wcache.o crc32.o listener.o file_parser.o $(LIBRARIES)
 
 balance.o: balance.c balance.h
 	$(CC) $(CFLAGS) -I. -c balance.c
@@ -43,7 +43,7 @@ crc32.o: crc32.c crc32.h
 listener.o: listener.c listener.h
 	$(CC) $(CFLAGS) -I. -c listener.c
 
-listener.o: file_parser.c file_parser.h
+file_parser.o: file_parser.c file_parser.h
 	$(CC) $(CFLAGS) -I. -c file_parser.c
 
 balance.pdf: balance.ps

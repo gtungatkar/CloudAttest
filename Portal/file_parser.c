@@ -60,9 +60,9 @@ int server_map_config(void *user_data, char *line)
         strncpy(as, ip, 16);
         printf("second ip = %s\n", as);
 }
-int main()
+/*int main()
 {
         file_parser("test", server_map_config, NULL);
         
         return 0;
-}
+}*/
