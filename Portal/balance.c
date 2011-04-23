@@ -2454,25 +2454,27 @@ int aplcn_svr_response_check(int new_fd)
                 char ipaddr[MAX_IPADDR_LEN];
                 int replication_status = 0;
                 int other_svr;
-                while(read(new_fd, buffer, MAX_BUFFER) > 0)
+                while((rc = read(new_fd, buffer, MAX_BUFFER)) > 0)
                 {
-                        printf("TESTING AS CHECKPOINTING: %s\n", buffer);
+                        LOGO("AS CHECKPOINTING DATA: %s\n", buffer);
                         //first packet 
                         if(firstbuf == 0)
                         {
                                 iplen = get_ipaddr(ipaddr, buffer);
-                             //   index = get_replication_status(ipaddr, other_svr);//TODO
+                                index = get_replication_status(ipaddr, &other_svr);
                                 if(index == -1)
                                 {       
                                         //do nothing. Not replicated. Just drop
                                         //these packets
-
+                                        LOGO("%s\n", "NO REPLICATION:Just DROP \
+                                                        PACKETS");
                                         replication_status = 0;
                                 }
                                 else
                                 {
                                         hash = crc32(buffer+iplen, rc-iplen, hash);
                                         replication_status = 1;
+                                        LOGO("%s\n", "first packet of AS DATA");
                                 }
                                 firstbuf = 1;
                         }
@@ -2482,6 +2484,7 @@ int aplcn_svr_response_check(int new_fd)
                         {
                                 if(replication_status)
                                 {
+                                        LOGO("%s\n", "next packets of AS DATA")
                                         hash = crc32(buffer, rc, hash);
                                 }
                         
@@ -2496,6 +2499,8 @@ int aplcn_svr_response_check(int new_fd)
                                 //both entries are 0..this is the first hash.
                                 //store and wait for second hash
                                 cmn_aplcn_svr_hash(common, index) = hash;
+                                LOGO("Hash of checkpoint data for first server index %d, value = %u\n", 
+                                                index, hash);
                         }
                         else
                         {
@@ -2505,12 +2510,14 @@ int aplcn_svr_response_check(int new_fd)
                                                         other_svr);
                                 if(hash == other_hash)
                                 {
-                                        printf("hash match\n");                //update matrix
+                                        LOGO("Server indices::1> %d 2> %d ::hash matches\n",
+                                                        index, other_svr);                //update matrix
                                 }
                                 else
                                 {
                                         //update non-matching count
-                                        printf("hash does not match\n");                //update matrix
+                                        LOGO("Server indices::1> %d 2> %d ::hash does NOT match\n", 
+                                                        index, other_svr);                //update matrix
                                 }
                                 //reset all entries
                                 cmn_aplcn_svr_hash(common, index) = 0;
