@@ -110,6 +110,7 @@
 #include <stdlib.h>
 #include "crc32.h"
 #include "listener.h"
+#include "log.h"
 const char *balance_rcsid = "$Id: balance.c,v 3.54 2010/12/03 12:47:10 t Exp $";
 static char *revision = "$Revision: 3.54 $";
 
@@ -2410,13 +2411,14 @@ int get_ipaddr(char *ipaddr, unsigned char *buffer)
                         break;
         }
         ipaddr[i] = '\0';
-        printf("ipaddr of the AS = %s\n", ipaddr);
+        LOGO("ipaddr of the AS = %s\n", ipaddr);
         return i;
 }
 int get_replication_status(char *ipaddr, int *other_svr)
 {
         int i = 0;
         int index = get_server_index(ipaddr);
+        LOGO("server index = %d\n", index);    
         if(index == -1)
                 return -1;
         while(i < MAXNODES)
@@ -2424,6 +2426,7 @@ int get_replication_status(char *ipaddr, int *other_svr)
                 if((cmn_aplcn_svr_map(common,index,i)) > 0)
                 {
                         *other_svr = i; 
+                        LOGO("replcn server index = %d\n", (*other_svr));    
                         return index;
                 }
                 i++;
@@ -2439,7 +2442,7 @@ int aplcn_svr_response_check(int new_fd)
                 int firstbuf = 0;
                 unsigned int hash = 0, other_hash = 0;
                 unsigned char buffer[MAX_BUFFER];
-                int rc, iplen, index = -1;
+                int rc = 0, iplen, index = -1;
                 char ipaddr[MAX_IPADDR_LEN];
                 int replication_status = 0;
                 int other_svr;
