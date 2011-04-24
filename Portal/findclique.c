@@ -1,103 +1,63 @@
 #include <stdio.h>
 //COMMON *common from balance.c
 extern int channel_count;
+int *CL,*cl_b;
+int clcnt = 0,clbcnt = 0;
 void find_clique()
 {
-	int *P,*R,*X,*CL,*cl_b,*malicious;
+	int *P,*R,*X,*malicious;
 	P=(int)malloc(channel_count*sizeof(int));
 	R=(int)malloc(channel_count*sizeof(int));
 	X=(int)malloc(channel_count*sizeof(int));
-	cl_b=(int)malloc(channel_count*sizeof(int));
+	cl_b=(int*)malloc(channel_count*sizeof(int));
 	malicious=(int)malloc(channel_count*sizeof(int));
 	CL=(int*)malloc(channel_count*channel_count*sizeof(int));
 	
 	
-	int i,j,pivot,rcnt=0,xcnt=0,clcnt=0,clbcnt=0,malcnt=0;
+	
+	int i,j,malcnt=0;
 
 	//Initialize the all arrays to -1.
+	//& Setup the node list P[]
 	for(i = 0;i < channel_count;i ++)
 	{
-		P[i]=R[i]=X[i]=-1;
+		R[i]=X[i]=-1;
+		P[i] = i;
 		for(j=0;j<channel_count;j++)
 			CL[i][j]=-1;
 	}
 
-	
-	//X contains already processed nodes
-	//P contains candidate node list.. in our case.. server's Channelindex
-	P[0] = 0;
-	P[1] = 2;
-	P[2] = 3;
-	P[3] = 1;
-
-	//Let us take P[2] as the pivot value
-	//Now.. move nodes from P -> R who are not neighbors of P[2] = Channel Index 3
-	pivot=2; //it is the index not the value
-	i=0;
-	while(!empty_P(P)){
-		if(i! = 2)
-		{
-			if(common->graph[P[pivot]][P[i]]==0 && common->graph[P[i]][P[pivot]]==0) //It is P[i] is not the neighbor of P[pivot] .. put in R
-			{
-				//Moving P[i] form P to R
-				R[rcnt++] = P[i];
-				P[i] = -1;
-			}
-		}
-		i++;
-
-
-	}
-
-	//Now inserting nodes from R into X as they have been processed
-	for(i=0;i<rcnt;i++)
-	{
-		X[xcnt++] = R[i]; 
-		CL[clcnt][i] = R[i];
-		R[i]=-1; //reset R[i] for next iteration
-	}//Put each R in a Clique Set CL[][]
-	clcnt++;
-
-	//Now start from a different Pivot node and do same as above to get another set R 
-	//There should be some recursive procedure for this kind of method.. page 5 RunTest Paper
-	//Finally R contains the Maximal Cliques.. each iteration may produce a clique in R
+	FindConsistencyClique(R,P,X);
 	
 	//Now, once we have the cliques, we need to find malicious nodes ...
-
-	
-
-
+	//Cliques in CL[][]
 	for(i=0;i<clcnt;i++)
 	{
 		//To find those maximal cliques with size > Total Nodes in Graph / 2
-		for(j=0;j<20;j++)
+		for(j=0;j<channel_count;j++)
 		{
 			if(CL[i][j] != -1)
 				continue;
 		}
-		if(j > total_nodes_in_graph / 2) // this is valid clique
+		if(j > channel_count/2) // this is valid clique
 		{
-			cl_b[clbcnt++] = i; //only this i'th clique will be used later
-		}
+			cl_b[clbcnt][j] = i; //only this i'th clique will be used later
+		}	
+		clbcnt++;
 	}
 
+	
 
-	//first find all the nodes in our common->graph[][]
-	for(each node_j in Graph){
-		for(i=0;i<clncnt;i++)
+	
+	
+	for(i = 0; i < channel_count ; i++){
+		if(!find_node_in_clique(P[i],cl_b))
 		{
-			for(j=0;j<20;j++)
-			{
-				if(node in graph ! = CL[cl_b[i]][j])
-					continue;
-			}
+			  //if current node in graph was not found in any of cl_b , it is malicious
+			  malicious[malcnt++] = P[i];
 		}
 	
-		//if current node in graph was not found in any of cl_b , it is malicious
-		malicious[malcnt++] = current_node_j;
-
-
-		//if only 1 maximal clique in cl_b
+		//if only 1 maximal clique in cl_b --- ATTACK MODELS FINDING --- NEEDED ????
 			//if number of cliques == 1 , nodes in this clique  => N_i
 				//if weights of edges from nodes in N_i to rest of nodes NOT in N_i are all 0s
 					//attack model is NCAM??
@@ -111,9 +71,26 @@ void find_clique()
 				//attack model is PTFC
 	}
 
-
-
 }
+
+
+unsigned char find_node_in_clique(int node_j, clique[][])
+{
+	unsigned char flag = 0;
+        for(i=0;i<clbcnt;i++)
+        {
+              for(j=0;j<channel_count;j++)
+              {
+                    if(node_j == cl_b[i][j])
+                    	flag = 1;
+	      }
+        }
+	if(flag == 0) //node_j is not present in any of the Cliques cl_b
+		return 0;
+	return 1;
+}
+	
+
 
 int sizeofR(int R[])
 {
@@ -135,6 +112,13 @@ void FindConsistencyClique(int R[], int P[], int X[] ){
 	if( is_empty(P) && is_empty(X) && (sizeofR(R)>1) )
 	{
 		//Report R as Maximal Clique
+		for(i=0 ; i<channel_count ; i++)
+		{	
+			if(R[i]!= -1)
+				CL[clcnt][i] = R[i];
+		}
+		clcnt++;
+
 	}
 	else
 	{
@@ -153,6 +137,7 @@ void FindConsistencyClique(int R[], int P[], int X[] ){
 
 		}
 	}
+	return;
 }
 
 
@@ -160,7 +145,6 @@ int is_neighbour(int i,int j){
 	
 	if(common->graph[i][j] != 0 && common->graph[j][i] != 0){
 		return 1;
-
 	}
 	return 0;
 }
@@ -173,7 +157,7 @@ void find_neghbor_set(int curr, int N[])
 	{
 		if(i!=curr)
 		{
-			if(common->graph[i][curr]!=0 && common->graph[curr][i] != 0)  //putting neighbors of curr in N[]
+			if(common->graph[i][curr] != 0 && common->graph[curr][i] != 0)  //putting neighbors of curr in N[]
 			{
 				N[i] = i;
 			}
@@ -200,22 +184,24 @@ void find_common_elements(int N1[], int N2[], int new[])
 }
 
 
-void subtract_element(int P[], int i){
+void subtract_element(int P[], int i)
+{
 
 	P[i] = -1;
 
 }
 
-void union_element(int R[], int i){
-
-	if(R[i] != -1){
+void union_element(int R[], int i)
+{
+	if(R[i] != -1)
+	{
 		R[i] = i;
 	}
-
 }
 
+
 int is_empty(int P[]){
-int i;
+	int i;
 	for(i=0;i<20;i++)
 	{
 		if(P[i]==-1)
@@ -223,15 +209,11 @@ int i;
 		else
 			return 0;
 	}
-	
 	return 1;
-
 }
 
 
 //extern int channel_count;
 int display(){
-
-printf("\nInDisplay: No of channels: %d\n",channel_count);
-
+	printf("\nInDisplay: No of channels: %d\n",channel_count);
 }

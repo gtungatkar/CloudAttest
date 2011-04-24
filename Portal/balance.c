@@ -1606,7 +1606,7 @@ COMMON *makecommon(int argc, char **argv, int source_port)
 	
   channel_count=grp_nchannels(mycommon, group);	
 	fprintf(stdout,"No of channels: %d\n",channel_count);
-  	display();
+  	//display();
 	
 	b_unlock();
   return (mycommon);
@@ -2242,7 +2242,7 @@ connect_timeout = DEFAULTTIMEOUT;
   common = makecommon(argc, argv, source_port);
 	memset(common, 0, sizeof(common));
 
-display();
+//display();
 
   for (;;) {
     int index;
