@@ -47,19 +47,6 @@ int file_parser(char *filename, int (*reader)(void *, char *line), void *c)
         return 0;
 
 }
-int server_map_config(void *user_data, char *line)
-{
-        char *ip;
-        char ws[16], as[16];
-	if(isspace(line[0]) || line[0] == '#') return 0;
-        printf("LINE = %s", line);
-        ip = strtok(line, "  \n");
-        strncpy(ws, ip, 16);
-        printf("firs ip = %s\n", ws);
-        ip = strtok(NULL, "\n ");
-        strncpy(as, ip, 16);
-        printf("second ip = %s\n", as);
-}
 /*int main()
 {
         file_parser("test", server_map_config, NULL);

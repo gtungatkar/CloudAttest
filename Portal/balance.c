@@ -155,7 +155,7 @@ static struct wcache_entry * repl_request;
 static struct wcache cache;
 unsigned int orig_hash = 0;
 unsigned int repl_hash = 0;
-
+static int ncfg = 0; //no. of config entries
 static struct timeval sel_tmout  = { 0, 0 }; /* seconds, microseconds */
 static struct timeval save_tmout = { 0, 0 }; /* seconds, microseconds */
 int resp_fd=-3;
@@ -875,19 +875,19 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
                                                 orig_hash, repl_hash);
                                 if(orig_hash == repl_hash)
                                 {
-                                        cmn_graph_set_consistent(common,channelindex,repl_index);  
+                                        cmn_graph_ws_set_consistent(common,channelindex,repl_index);  
                                         printf("incrementing consistent for\
                                                         index %d & %d ::c  = %d ic = %d\n",
-                                                        channelindex, repl_index, cmn_graph_get_consistent(common,channelindex,repl_index),
-							cmn_graph_get_inconsistent(common,channelindex,repl_index));
+                                                        channelindex, repl_index, cmn_graph_ws_get_consistent(common,channelindex,repl_index),
+							cmn_graph_ws_get_inconsistent(common,channelindex,repl_index));
                                 }
                                 else
                                 {
-                                        cmn_graph_set_inconsistent(common,channelindex,repl_index);  
+                                        cmn_graph_ws_set_inconsistent(common,channelindex,repl_index);  
                                         printf("incrementing INconsistent for\
                                                         index %d & %d ::c  = %d ic = %d\n",
-                                                        channelindex, repl_index, cmn_graph_get_consistent(common,channelindex,repl_index),
-							cmn_graph_get_inconsistent(common,channelindex,repl_index));
+                                                        channelindex, repl_index, cmn_graph_ws_get_consistent(common,channelindex,repl_index),
+							cmn_graph_ws_get_inconsistent(common,channelindex,repl_index));
                                 }
                         }
                          // stream(newsockfd, groupindex, index, (char *) &cli_addr, clilen);
@@ -2002,6 +2002,29 @@ int get_replication_index(int num_grp_channels)
 	return ((int)rand())%num_grp_channels;
 }
 
+
+//CloudAttest
+
+int server_map_config(void *user_data, char *line)
+{
+        char *ip;
+        int *index = (int *)user_data;
+        if(*index > MAXNODES)
+        {       
+                LOGO("%s", "Config file has too manyy entries\n");
+                return -1;
+        }
+	if(isspace(line[0]) || line[0] == '#') return 0;
+        LOGO("Config Line = %s, index = %d\n", line, (*index));
+        ip = strtok(line, "  \n");
+        strncpy(cmn_topology(common, (*index)).ws, ip, 16);
+        LOGO("web server ip = %s\n", ip);
+        ip = strtok(NULL, "\n ");
+        strncpy(cmn_topology(common, (*index)).as, ip, 16);
+        LOGO("app server ip = %s\n", ip);
+        (*index)++;
+        return 0;
+}
 char bindhost_address[FILENAMELEN];
 
 int main(int argc, char *argv[])
@@ -2243,6 +2266,11 @@ connect_timeout = DEFAULTTIMEOUT;
 	memset(common, 0, sizeof(common));
 
 //display();
+  /* read the config file which has the one to one mapping of web server ip
+   * addresses and application server ip addresses */
+
+        file_parser("server_config.txt", server_map_config, &ncfg);
+        
 
   for (;;) {
     int index;
@@ -2510,14 +2538,21 @@ int aplcn_svr_response_check(int new_fd)
                                                         other_svr);
                                 if(hash == other_hash)
                                 {
-                                        LOGO("Server indices::1> %d 2> %d ::hash matches\n",
-                                                        index, other_svr);                //update matrix
+                                        cmn_graph_as_set_consistent(common,index,other_svr);  
+                                        LOGO("Applcn Server:incrementing consistent for\
+                                                        index %d & %d ::c  = %d ic = %d\n",
+                                                        index, other_svr,
+                                                        cmn_graph_as_get_consistent(common,index,other_svr),
+							cmn_graph_as_get_inconsistent(common,index,other_svr));
                                 }
                                 else
                                 {
-                                        //update non-matching count
-                                        LOGO("Server indices::1> %d 2> %d ::hash does NOT match\n", 
-                                                        index, other_svr);                //update matrix
+                                        cmn_graph_as_set_inconsistent(common,index,other_svr);  
+                                        LOGO("incrementing INconsistent for\
+                                                        index %d & %d ::c  = %d ic = %d\n",
+                                                        index, other_svr,
+                                                        cmn_graph_as_get_consistent(common,index,other_svr),
+							cmn_graph_as_get_inconsistent(common,index,other_svr));
                                 }
                                 //reset all entries
                                 cmn_aplcn_svr_hash(common, index) = 0;
