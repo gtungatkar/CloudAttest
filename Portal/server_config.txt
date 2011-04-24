@@ -1,0 +1,5 @@
+#config file for web and applcn server ip addr mapping
+#first column = web second col = applcn server
+192.168.1.1 192.168.2.2
+192.168.3.3 192.168.4.4
+                        

@@ -117,7 +117,8 @@ typedef struct {
   int   subrelease;
   int   pid;
   GROUP groups[MAXGROUPS];
-  EDGE graph[MAXNODES][MAXNODES];
+  EDGE graph_ws[MAXNODES][MAXNODES];
+  EDGE graph_as[MAXNODES][MAXNODES];
   SERVER_MAP topology[MAXNODES];   /*mapping of aplcn servers and web servers*/
   int aplcn_svr_replcn_map[MAXNODES][MAXNODES]; /*replication between which 2
                                                   servers?*/ 
@@ -160,17 +161,29 @@ int get_replication_index(int );
 
 #define cmn_aplcn_svr_hash(a, i) ((a)->aplcn_svr_hash[i])
 
-#define cmn_graph_set_consistent(a,nodei,nodej)  {\
-        (a)->graph[(nodei)][(nodej)].consistent++; \
-        (a)->graph[(nodej)][(nodei)].consistent++; \
+#define cmn_graph_ws_set_consistent(a,nodei,nodej)  {\
+        (a)->graph_ws[(nodei)][(nodej)].consistent++; \
+        (a)->graph_ws[(nodej)][(nodei)].consistent++; \
 }
 
-#define cmn_graph_set_inconsistent(a,nodei,nodej)  {\
-        (a)->graph[(nodei)][(nodej)].inconsistent++; \
-        (a)->graph[(nodej)][(nodei)].inconsistent++; \
+#define cmn_graph_ws_set_inconsistent(a,nodei,nodej)  {\
+        (a)->graph_ws[(nodei)][(nodej)].inconsistent++; \
+        (a)->graph_ws[(nodej)][(nodei)].inconsistent++; \
 }
-#define cmn_graph_get_consistent(a,nodei, nodej) ((a)->graph[(nodei)][(nodej)].consistent)
-#define cmn_graph_get_inconsistent(a,nodei, nodej) ((a)->graph[(nodei)][(nodej)].inconsistent)
+#define cmn_graph_ws_get_consistent(a,nodei, nodej) ((a)->graph_ws[(nodei)][(nodej)].consistent)
+#define cmn_graph_ws_get_inconsistent(a,nodei, nodej) ((a)->graph_ws[(nodei)][(nodej)].inconsistent)
+
+#define cmn_graph_as_set_consistent(a,nodei,nodej)  {\
+        (a)->graph_as[(nodei)][(nodej)].consistent++; \
+        (a)->graph_as[(nodej)][(nodei)].consistent++; \
+}
+
+#define cmn_graph_as_set_inconsistent(a,nodei,nodej)  {\
+        (a)->graph_as[(nodei)][(nodej)].inconsistent++; \
+        (a)->graph_as[(nodej)][(nodei)].inconsistent++; \
+}
+#define cmn_graph_as_get_consistent(a,nodei, nodej) ((a)->graph_as[(nodei)][(nodej)].consistent)
+#define cmn_graph_as_get_inconsistent(a,nodei, nodej) ((a)->graph_as[(nodei)][(nodej)].inconsistent)
 
 
 #define MAX_IPADDR_LEN 16
