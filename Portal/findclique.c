@@ -41,6 +41,20 @@ void union_element(int R[], int i)
 }
 
 
+void union_Relement(int R[], int i,int Rnew[])
+{
+	int j,ncnt = 0;
+	for(j=0;j<5;j++)
+	  if(R[j] != -1)
+          {
+                Rnew[ncnt++] = R[j];
+                
+          }
+	Rnew[ncnt]  = i;
+	printf("\nUnioning R , i to Rnew");
+}
+
+
 int is_empty(int P[]){
         int i;
         for(i=0;i<20;i++)
@@ -217,10 +231,14 @@ void find_clique()
 	
 	
 	for(i = 0; i < channel_count ; i++){
-		if(!find_node_in_clique(P[i],cl_b))
+		if(!find_node_in_clique(i,cl_b))
 		{
 			  //if current node in graph was not found in any of cl_b , it is malicious
-			  malicious[malcnt++] = P[i];
+			  malicious[malcnt++] = i;
+		}
+		else
+		{
+			printf("\n %d is in cl_b!!",i);
 		}
 	
 		//if only 1 maximal clique in cl_b --- ATTACK MODELS FINDING --- NEEDED ????
@@ -258,7 +276,7 @@ void FindConsistencyClique(int R[], int P[], int X[] ){
 
 	int i = 0,j,K;
 	//int *Pnew,*Xnew,*N;
-	int Pnew[5],Xnew[5],N[5];
+	int Pnew[5],Xnew[5],N[5],Rnew[5];
   	printf("\n New CALL: Size of: R: %d ; P: %d ; X: %d ",sizeofR(R),sizeofR(P),sizeofR(X));
 	if( is_empty(P) && is_empty(X) && (sizeofR(R)>1) )
 	{
@@ -289,29 +307,34 @@ void FindConsistencyClique(int R[], int P[], int X[] ){
 			//N=(int)malloc(channel_count*sizeof(int));
 		 	for(j = 0;j < channel_count;j ++)
 	 	        {
-            			Pnew[j]=Xnew[j]=N[j]=-1;
+            			Pnew[j]=Xnew[j]=N[j]=Rnew[j]=-1;
         		}
 			
-			find_neighbor_set(i,N);
+			
 
 			if(K!=P[i] && P[i]!=-1){
 			if(is_neighbour(K,i)==0)
 			{
-			         printf("\n\n Neighbor Set of: %d \n ",P[i]);
+				 find_neighbor_set(i,N);
+
+			         printf("\n\n Neighbor Set of: %d \n ",i);
                         	 for(j=0;j<5;j++)
                                 	if(N[j]!=-1)
                                   		printf("\t %d;",N[j]);
 
 				subtract_element(P,i);
 				printf("\n\t : After Subtraction of %d from P , size of P is: %d",i,sizeofR(P));
-				union_element(R,i);
+	
+				//going according to the algorithm... adding Rnew also
+				union_Relement(R,i,Rnew);
+
 				printf("\n\t : After Union of R , size of R is: %d \t",sizeofR(R));
 				for (j =0 ; j<5;j++)
 					printf("R[%d]: %d  ",j,R[j]);
 				find_common_elements(P,N,Pnew);
 				find_common_elements(X,N,Xnew);
 				printf("\n recursion: Size of: R: %d ; Pnew: %d ; Xnew: %d ; N[%d]:%d",sizeofR(R),sizeofR(Pnew),sizeofR(Xnew),i,sizeofR(N));
-				FindConsistencyClique(R, Pnew, Xnew);
+				FindConsistencyClique(Rnew, Pnew, Xnew);
 				union_element(X,i);	
 				printf("\n\t : After Union of X , size of X is: %d \t",sizeofR(X));
 			}
