@@ -11,8 +11,8 @@ Tested and Working as of 4/27/2011
 int channel_count = 4;
 //int *CL,*cl_b;
 //int *malicious;
-int malicious[5];
-int CL[10][10],cl_b[10][10];
+int malicious[4];
+int CL[4][4],cl_b[4][4];
 int clcnt = 0,clbcnt = 0,malcnt=0;
 int graph[4][4] = {0,1,1,0,1,0,0,1,1,0,0,1,0,1,1,0} ; //with 4 cliques - Tested
 //int graph[4][4] = {0,1,1,1,1,0,1,1,1,1,0,1,1,1,1,0} ; //with 1 clique - Tested
@@ -141,17 +141,21 @@ void find_neighbor_set(int curr, int N[])
 } // Tested
 
 
-unsigned char find_node_in_clique(int node_j, int clique[][10])
+unsigned char find_node_in_clique(int node_j, int clique[][4])
 {
         unsigned char flag = 0;
 	int i,j;
         for(i=0;i<clbcnt;i++)
         {
-              for(j=0;j<channel_count;j++)
-              {
-                    if(node_j == clique[i][j])
-                        flag = 1;
-              }
+//              for(j=0;j<channel_count;j++)
+  //            {
+    //                if(node_j == clique[i][j])
+      //                  flag = 1;
+        //      }
+		if(clique[i][node_j] == 1){
+			flag =1;
+			break;
+		}
         }
         if(flag == 0) //node_j is not present in any of the Cliques cl_b
                 return 0;
@@ -327,6 +331,66 @@ int find_next(int P[])
 }
 
 
+void findMalicious()
+{
+
+	int i,j,cnt = 0;
+        for(i=0;i<clcnt;i++)
+        {
+                //To find those maximal cliques with size > Total Nodes in Graph / 2
+		cnt = 0;
+                for(j=0;j<channel_count;j++)
+                {
+                        if(CL[i][j] != 0){
+                               cnt ++;
+				
+			}
+			
+                }
+                if(cnt > channel_count/2) // this is valid clique
+                {
+			printf("\n\t Current Count: %d for the Clique No: %d",cnt,i);
+                       // cl_b[clbcnt][j] = 1; //only this i'th clique will be used later
+			for(j = 0; j < channel_count ; j ++ )
+				cl_b[clbcnt][j] = CL[i][j];
+			clbcnt ++;		
+
+                }
+        }
+
+
+
+        printf("\n The cliques B  are: (CNT: %d) ... Original Count = %d\n",clbcnt,clcnt);
+        for(i=0;i<clbcnt;i++){
+                for(j=0;j<channel_count;j++){
+//                        if(cl_b[i][j]!=-1)
+                                printf("\t %d",cl_b[i][j]);
+
+                }
+                printf("\n");
+        }
+
+
+
+	if(clbcnt != 0) // no cl_b cliques
+	{
+        for(i = 0; i < channel_count ; i++){
+                if(!find_node_in_clique(i,cl_b))
+                {
+                          //if current node in graph was not found in any of cl_b , it is malicious
+                          malicious[malcnt++] = 1;
+			printf("\n\t\t\tNode %d is malicious",i);
+                }
+		else    malicious[malcnt++] = 0;
+        }
+	}    
+	else //cl_b is not empty
+	{
+		//do nothing
+	}
+
+}
+
 void FindConsistencyClique(int R[], int P[], int X[], int curr ){
 
 
@@ -462,9 +526,14 @@ int main()
     //printf("Size: %d",sizeofR(N3));
     //find_neighbor_set(3,N3);
     FindConsistencyClique(R,P,X,-1);
+    initialize_array(malicious);
+    findMalicious();
+    
+    printf("\n\t\tMalicious Array ;:: Finally: \n");
 		for(i=0;i<channel_count;i++)
 		{
 		//if(malicious[i]!=-1)
-		printf("\t %d;",N3[i]);
+		printf("\t %d;",malicious[i]);
+ 
         }
 }
