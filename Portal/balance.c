@@ -170,12 +170,14 @@ int get_server_index(char *ipaddr)
         int i = 0;
         for(i = 0; i < MAXNODES; i++)
         {
-                if(strcmp((cmn_topology(common, i).as), ipaddr) == 0)
+                if(strncmp((cmn_topology(common, i)).as, ipaddr, 16) == 0)
                 {
                         return i;
                 }
         }
-        return -1;
+
+        LOGO("Could not get any index%d\n", 0);
+	return -1;
 }
 int create_serversocket(char* node, char* service) {
   struct addrinfo hints;
@@ -756,11 +758,10 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
 
         }
         else{
+		int striphdr = 0;
               if(RESPONSE_REPL){ //not the start if the packet... write directly to the opened file 'resp_fd'
                 file_the_response(buffer,rc,0);
 
-                /* Calculate incremental hash value of response*/
-                orig_hash = crc32(buffer, rc, orig_hash);
 		
                 content_length -= rc;
                 if(html_end_required)
@@ -772,6 +773,18 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
 			}
                 
                 }
+                /* Calculate incremental hash value of response*/
+/*		striphdr = rc;
+		if(content_length <= 0)
+		{
+			if(rc - 40 > 0)
+				striphdr = rc - 40;
+			else
+				striphdr = rc - rc /4;
+                	printf("rc = %d; strp = %d\n", rc, striphdr);
+		}
+*/
+		orig_hash = crc32(buffer, striphdr, orig_hash);
 /*		if(content_length == 0){
 			fprintf(stdout,"\n\nCONTENT LENGTH IS NOW 0\n\n");
 		   if(do_replication()==1)
@@ -813,6 +826,10 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
                       else{
                        // while((repl_index=get_replication_index(grp_nchannels(common,groupindex)))== (grp_current(common, groupindex)) );
 			while((repl_index=get_replication_index(grp_nchannels(common,groupindex)))== current_original_channel);
+			
+			cmn_aplcn_svr_map(common,current_original_channel, repl_index) = 1;
+			cmn_aplcn_svr_map(common, repl_index, current_original_channel) = 1;
+			LOGO("server map entry [%d][%d]\n", current_original_channel, repl_index);
                         printf("\n\nBACKWARD Flow to Client ; GOT Index: %d    Rep_Index: %d\n",current_original_channel,repl_index);
 			current_original_channel=-1;
 
@@ -1094,6 +1111,12 @@ int get_replicated_socket(int groupindex, int index) {
   //stream2(clientfd, sockfd, groupindex, index);
 }
 
+int write_output_matrix()
+{
+
+
+
+}
 
 //CloutAttest - File the Response PER request .. FILE pointer is Global
 unsigned char file_the_response(unsigned char *packet, int packet_size,unsigned char flag){
@@ -1533,7 +1556,7 @@ COMMON *makecommon(int argc, char **argv, int source_port)
     fprintf(stderr, "cannot alloc COMMON struct\n");
     exit(EX_OSERR);
   }
-	memset(mycommon, 0, sizeof(mycommon) );
+  memset(mycommon, 0, sizeof(COMMON) );
   mycommon->pid = getpid();
   mycommon->release = release;
   mycommon->subrelease = subrelease;
@@ -2018,10 +2041,10 @@ int server_map_config(void *user_data, char *line)
         LOGO("Config Line = %s, index = %d\n", line, (*index));
         ip = strtok(line, "  \n");
         strncpy(cmn_topology(common, (*index)).ws, ip, 16);
-        LOGO("web server ip = %s\n", ip);
+        LOGO("web server ip = %s\n", cmn_topology(common, (*index)).ws);
         ip = strtok(NULL, "\n ");
         strncpy(cmn_topology(common, (*index)).as, ip, 16);
-        LOGO("app server ip = %s\n", ip);
+        LOGO("app server ip = %s\n", cmn_topology(common, (*index)).as);
         (*index)++;
         return 0;
 }
@@ -2059,13 +2082,6 @@ int main(int argc, char *argv[])
 else{
   fprintf(stdout, "Initial File opened successfully.");
 }
-      pid = fork();
-      if(pid == 0)
-        {
-        connection_handler(cfg);
-        return 0;
-        }
-	printf("IN PARENT \n");
 connect_timeout = DEFAULTTIMEOUT;
   initialize_release_variables();
 
@@ -2243,7 +2259,6 @@ connect_timeout = DEFAULTTIMEOUT;
       fprintf(stderr, "cannot alloc COMMON struct\n");
       exit(EX_OSERR);
     }
-	memset(common, 0, sizeof(common));
     shell(argument);
   }
 
@@ -2263,7 +2278,6 @@ connect_timeout = DEFAULTTIMEOUT;
   }
 
   common = makecommon(argc, argv, source_port);
-	memset(common, 0, sizeof(common));
 
 //display();
   /* read the config file which has the one to one mapping of web server ip
@@ -2271,6 +2285,13 @@ connect_timeout = DEFAULTTIMEOUT;
 
         file_parser("server_config.txt", server_map_config, &ncfg);
         
+      pid = fork();
+      if(pid == 0)
+	{
+        connection_handler(cfg);
+        return 0;
+        }
+	printf("IN PARENT \n");
 
   for (;;) {
     int index;
@@ -2439,6 +2460,8 @@ connect_timeout = DEFAULTTIMEOUT;
 int get_ipaddr(char *ipaddr, unsigned char *buffer)
 {
         int i = 0;
+	buffer++;
+	buffer++;
         while(buffer[i] != '#')
         {
                 ipaddr[i] = buffer[i];
@@ -2448,14 +2471,17 @@ int get_ipaddr(char *ipaddr, unsigned char *buffer)
         }
         ipaddr[i] = '\0';
         LOGO("ipaddr of the AS = %s\n", ipaddr);
-        return i;
+        return i+2;
 }
 int get_replication_status(char *ipaddr, int *other_svr)
 {
         int i = 0;
+	LOGO("ipaddr = %s\n", ipaddr);
         int index = get_server_index(ipaddr);
-        LOGO("server index = %d\n", index);    
-        if(index == -1)
+       //int index = -1;
+	LOGO("server index = %d\n", index);    
+        
+	if(index == -1)
                 return -1;
         while(i < MAXNODES)
         {
@@ -2502,7 +2528,7 @@ int aplcn_svr_response_check(int new_fd)
                                 {
                                         hash = crc32(buffer+iplen, rc-iplen, hash);
                                         replication_status = 1;
-                                        LOGO("%s\n", "first packet of AS DATA");
+                                        LOGO("first packet of AS DATA = %s\n", buffer+iplen);
                                 }
                                 firstbuf = 1;
                         }
@@ -2536,11 +2562,11 @@ int aplcn_svr_response_check(int new_fd)
                                                 == 0)
                                         other_hash = cmn_aplcn_svr_hash(common,
                                                         other_svr);
-                                if(hash == other_hash)
+                                LOGO("AS orig hash = %u; other hash = %u\n", hash, other_hash);
+				if(hash == other_hash)
                                 {
                                         cmn_graph_as_set_consistent(common,index,other_svr);  
-                                        LOGO("Applcn Server:incrementing consistent for\
-                                                        index %d & %d ::c  = %d ic = %d\n",
+                                        LOGO("Applcn Server:incrementing consistent for index %d & %d ::c  = %d ic = %d\n",
                                                         index, other_svr,
                                                         cmn_graph_as_get_consistent(common,index,other_svr),
 							cmn_graph_as_get_inconsistent(common,index,other_svr));
@@ -2548,8 +2574,7 @@ int aplcn_svr_response_check(int new_fd)
                                 else
                                 {
                                         cmn_graph_as_set_inconsistent(common,index,other_svr);  
-                                        LOGO("incrementing INconsistent for\
-                                                        index %d & %d ::c  = %d ic = %d\n",
+                                        LOGO("incrementing INconsistent for index %d & %d ::c  = %d ic = %d\n",
                                                         index, other_svr,
                                                         cmn_graph_as_get_consistent(common,index,other_svr),
 							cmn_graph_as_get_inconsistent(common,index,other_svr));
