@@ -8,19 +8,19 @@ Tested and Working as of 4/27/2011
 //#include "balance.h"
 //COMMON *common from balance.c
 //extern int channel_count;
-int channel_count = 4;
+int channel_count = 5;
 //int *CL,*cl_b;
 //int *malicious;
-int malicious[4];
-int CL[4][4],cl_b[4][4];
+int malicious[5];
+int CL[5][5],cl_b[5][5];
 int clcnt = 0,clbcnt = 0,malcnt=0;
-int graph[4][4] = {0,1,1,0,1,0,0,1,1,0,0,1,0,1,1,0} ; //with 4 cliques - Tested
+int graph[5][5] = {0,1,1,1,0,1,0,1,1,0,1,1,0,0,0,1,1,0,0,1,0,0,0,1,0} ; //with 4 cliques - Tested
 //int graph[4][4] = {0,1,1,1,1,0,1,1,1,1,0,1,1,1,1,0} ; //with 1 clique - Tested
 //int graph[4][4] = {0,0,1,1,0,0,1,0,1,1,0,1,1,0,1,0} ; // with 2 cliques - 1011, 0110 -Tested
 //int graph[4][4] = {0,1,0,0,1,0,1,1,0,1,0,1,0,1,1,0} ; // with 2 cliques - 1100, 0111 - Tested
 //int graph[4][4] = {0,1,1,0,1,0,1,0,1,1,0,1,0,0,1,0} ; // with 2 cliques - 1110, 0011 - Tested
 int f[5];
-int N[4];
+int N[5];
 
 
 void initialize_array(int a[])
@@ -141,7 +141,7 @@ void find_neighbor_set(int curr, int N[])
 } // Tested
 
 
-unsigned char find_node_in_clique(int node_j, int clique[][4])
+unsigned char find_node_in_clique(int node_j, int clique[][5])
 {
         unsigned char flag = 0;
 	int i,j;
@@ -311,7 +311,7 @@ int pivot(int P[])
 void print(int a[])
 {
     int i=0;
-    for(i=0; i<4; i++)
+    for(i=0; i<5; i++)
         printf("%d ",a[i]);
 
     printf("\n");
@@ -447,7 +447,7 @@ void FindConsistencyClique(int R[], int P[], int X[], int curr ){
 
 			//if(K!=P[i] && P[i]!=-1){
 			//if(is_neighbour(K,i)==0)
-			int Pnew[4],Xnew[4],Rnew[4];
+			int Pnew[5],Xnew[5],Rnew[5];
                // printf("\n----------------------------Elements in P : ");
                // print(P);
                 initialize_array(Rnew);
@@ -512,12 +512,12 @@ int main()
 //		if(malicious[i]!=-1)
 //		printf("\t %d;",malicious[i]);
 //	}*/
-	int N1[4] = {1,0,0,0};
-	int N2[4] = {1,0,0,1};
-	int N3[4] = {0};
-    int R[4] = {0};
-    int P[4] = {1,1,1,1};
-    int X[4] ={0};
+	int N1[5] = {1,0,0,0};
+	int N2[5] = {1,0,0,1};
+	int N3[5] = {0};
+    int R[5] = {0};
+    int P[5] = {1,1,1,1,1};
+    int X[5] ={0};
 	//intersection_elements(N1, N2, N3);
 	//subtract_element(N1,0);
 	//XUnion_element(N1,3);

@@ -6,6 +6,7 @@
  *
  */
 /** Reverses bit order. MSB -> LSB and LSB -> MSB. */
+#include <stdio.h>
 unsigned int reverse(unsigned int x) {
     unsigned int ret = 0, i;
     for (i=0; i<32; ++i) {
@@ -39,14 +40,33 @@ unsigned int crc32(unsigned char* message, unsigned int msgsize, unsigned int cr
 /*
 int main()
 {
-        unsigned int csum = 0;
-        csum = crc32("hello world!", 12, 0);
+        unsigned int csum = 0, i = 0;
+	unsigned char buf[12], buf1[6], buf2[6];
+	char c = 'a';
+	for(i = 0; i < 12; i++)
+	{
+		buf[i] = i + 0x99999;
+		
+	}
+	printf("buf = %s\n", buf);
+	for(i = 0; i < 6; i++)
+	{
+		buf1[i] = i + 0x99999;
+	}
+	printf("buf1 = %s\n", buf1);
+	for(i = 6; i < 12; i++)
+	{
+		buf2[i-6] = i+ 0x99999;
+	}
+
+	printf("buf2 = %s\n", buf2);
+        csum = crc32(buf, 12, 0);
         printf("crc32 1 = %u\n", csum);
         csum = 0;
-        csum = crc32("hello ", 6, 0);
-        csum = crc32("world", 6, csum);
+        csum = crc32(buf1, 6, 0);
+        csum = crc32(buf2, 6, csum);
         printf("crc32 2 = %u\n", csum);
 
         return 0;
 } 
- */
+*/

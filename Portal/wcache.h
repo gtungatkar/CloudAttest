@@ -35,6 +35,7 @@ struct wcache_entry {
         unsigned int signature_hash;
         int is_replicated;      /*Is this request replicated*/
         int size;       /*size of the entry*/
+	int repl_index;
         struct wcache_list_element cache_elem;  /*part of single global cache
                                                   list*/
         struct wcache_list_element hash_elem;  /*part of hash table*/
