@@ -163,7 +163,523 @@ char resp_buff[COMP_SIZE];
 char repl_buff[COMP_SIZE];
 static int unmatch_count = 0;
 
+//int channel_count;
+
+
+/*-----------------APIs for Finding Clique at Current State-------------------------------*/
+/*
+Clique Detection Algorithm
+Tested and Working as of 4/27/2011
+*/
+
+//#include <stdio.h>
+//#include <stdlib.h>
+//#include "balance.h"
+//COMMON *common from balance.c
+//extern int channel_count;
 int channel_count;
+//int *CL,*cl_b;
+//int *malicious;
+int malicious[5];
+int CL[5][5],cl_b[5][5];
+int clcnt,clbcnt,malcnt;
+//int graph[4][4] = {0,1,1,0,1,0,0,1,1,0,0,1,0,1,1,0} ; //with 4 cliques - Tested
+//int graph[4][4] = {0,1,1,1,1,0,1,1,1,1,0,1,1,1,1,0} ; //with 1 clique - Tested
+//int graph[4][4] = {0,0,1,1,0,0,1,0,1,1,0,1,1,0,1,0} ; // with 2 cliques - 1011, 0110 -Tested
+//int graph[4][4] = {0,1,0,0,1,0,1,1,0,1,0,1,0,1,1,0} ; // with 2 cliques - 1100, 0111 - Tested
+//int graph[4][4] = {0,1,1,0,1,0,1,0,1,1,0,1,0,0,1,0} ; // with 2 cliques - 1110, 0011 - Tested
+int graph[5][5];
+int f[5];
+int N[5];
+
+
+void initialize_array(int a[])
+{   
+    int i;
+ for(i = 0;i<channel_count;i++)
+    a[i] = 0;
+    
+}
+
+void intersection_elements(int N1[], int N2[], int new[])
+{ 
+        int i,new_cnt = 0;
+        for(i = 0;i < channel_count;i ++)
+        {
+                if(N1[i] == N2[i]) //found intersection between N1 and N2
+                {
+                    if(N1[i]!=0)
+                    {
+                        new[i] = 1;
+                    }
+                    else
+                    {
+                        new[i] = 0;
+                    }
+                }
+
+                else
+                        new[i] = 0;
+        }
+} //Tested
+
+
+int subtract_element(int P[], int i)
+{
+
+    if(P[i] != 0)
+    {
+        P[i] = 0;
+        return 1;
+    }
+    else
+        return 0;
+
+
+} //Tested
+
+int XUnion_element(int R[], int i)
+{
+        if(R[i] == 0)
+        {
+                R[i] = 1;
+                printf("\n Unioning!");
+                return 1;
+        }
+        else    return 0;
+}
+
+void union_element(int R[], int Rnew[], int i)
+{
+        int j,ncnt = 0;
+        for(j=0;j<channel_count;j++)
+         {
+            if(j == i)
+            {
+                Rnew[ncnt++] = 1;
+            }
+        else
+        {
+            Rnew[ncnt++] = R[j];
+        }
+
+
+         }
+        //Rnew[ncnt]  = i;
+        printf("\nUnioning R , i to Rnew");
+} //Tested
+
+
+int is_empty(int P[]){
+        int i;
+        for(i=0;i<channel_count;i++)
+        {
+                if(P[i] != 0)
+                    return 0;
+        }
+        return 1;
+} //Tested
+
+
+int is_neighbour(int i,int j){
+
+        if(graph[i][j] != 0 && graph[j][i] != 0){
+                return 1;
+        }
+        return 0;
+}
+
+
+void find_neighbor_set(int curr, int N[])
+{
+        int i,ncnt = 0;
+        for(i=0; i<channel_count; i++)
+        {
+            if(graph[curr][i] == 1)
+            {
+                N[i] = 1;
+            }
+            else
+            {
+                N[i] = 0;
+            }
+
+        }
+
+} // Tested
+
+unsigned char find_node_in_clique(int node_j, int clique[][5])
+{
+        unsigned char flag = 0;
+        int i,j;
+        for(i=0;i<clbcnt;i++)
+        {
+//              for(j=0;j<channel_count;j++)
+  //            {
+    //                if(node_j == clique[i][j])
+      //                  flag = 1;
+        //      }
+                if(clique[i][node_j] == 1){
+                        flag =1;
+                        break;
+                }
+        }
+        if(flag == 0) //node_j is not present in any of the Cliques cl_b
+                return 0;
+        return 1;
+}
+
+
+
+int sizeofR(int R[])
+{
+int i=0, count=0;
+        for(i=0; i<channel_count; i++) {
+                if(R[i] != 0 ){
+                        count++;
+                }
+        }
+return count;
+}
+
+void print(int a[])
+{
+    int i=0;
+    for(i=0; i<channel_count; i++)
+        printf("%d ",a[i]);
+
+    printf("\n");
+}
+
+int find_next(int P[])
+{
+        int i = 0;
+        for(i=0; i<channel_count; i++)
+        {
+                if(P[i] == 1)
+                {
+                    return i;
+                }
+        }
+        return -1;
+}
+
+
+void findMalicious()
+{
+
+        int i,j,cnt = 0;
+        for(i=0;i<clcnt;i++)
+        {
+                //To find those maximal cliques with size > Total Nodes in Graph / 2
+                cnt = 0;
+                for(j=0;j<channel_count;j++)
+                {
+                        if(CL[i][j] != 0){
+                               cnt ++;
+
+                        }
+
+                }
+                if(cnt > channel_count/2) // this is valid clique
+                {
+                        printf("\n\t Current Count: %d for the Clique No: %d",cnt,i);
+                       // cl_b[clbcnt][j] = 1; //only this i'th clique will be used later
+                        for(j = 0; j < channel_count ; j ++ )
+                                cl_b[clbcnt][j] = CL[i][j];
+                        clbcnt ++;
+
+                }
+        }
+
+
+
+        printf("\n The cliques B  are: (CNT: %d) ... Original Count = %d\n",clbcnt,clcnt);
+        for(i=0;i<clbcnt;i++){
+                for(j=0;j<channel_count;j++){
+//                        if(cl_b[i][j]!=-1)
+                                printf("\t %d",cl_b[i][j]);
+                }
+                printf("\n");
+        }
+
+
+
+        if(clbcnt != 0) // no cl_b cliques
+        {
+        for(i = 0; i < channel_count ; i++){
+                if(!find_node_in_clique(i,cl_b))
+                {
+                          //if current node in graph was not found in any of cl_b , it is malicious
+                          malicious[malcnt++] = 1;
+                        printf("\n\t\t\tNode %d is malicious",i);
+                }
+                else    malicious[malcnt++] = 0;
+        }
+        }
+        else //cl_b is not empty
+        {
+                //do nothing
+        }
+
+}
+
+
+void FindConsistencyClique(int R[], int P[], int X[], int curr ){
+
+
+        int i = 0,j,K;
+        int current = curr+1;
+        printf("\nNew CALL:  ------------------------------------\n");
+        printf("Elements in R : ");
+        print(R);
+    printf("Elements in P : ");
+        print(P);
+    printf("Elements in X : ");
+        print(X);
+        //int *Pnew,*Xnew,*N;
+    printf("\n Size of: R: %d ; P: %d ; X: %d ",sizeofR(R),sizeofR(P),sizeofR(X));
+
+
+
+        if( is_empty(P) && is_empty(X) && (sizeofR(R)>1) )
+        {
+                //Report R as Maximal Clique
+                int j;
+                printf("\nInside New call - Forming Clique -------------------------------------------------Current = %d i = %d\n",current,i);
+                printf("\nWeGotClique!!!!!!!!!!!!!!!: ");
+                for(j=0 ; j<channel_count ; j++)
+                {
+                        if(R[j]!= 0){
+                                CL[clcnt][j] = R[j];
+
+                        }
+                        printf("\t %d",CL[clcnt][j]);
+                }
+        //initialize_array(R);
+                clcnt++;
+        }
+        else
+        {
+                //Select Pivot Node K
+                //K = pivot(P);
+                //printf("\n\t\t Got  Pivot: %d",K);
+                /*if(K == -1) // error in finding pivot
+                {
+                        printf("\nreturning as K = -1");
+                        return;
+                }*/
+                while((i=find_next(P)) != -1)//for(i = current; i<channel_count; i++)
+                {
+                    printf("\nInside For Loop ------------------------------------Current = %d \n",current);
+                    printf("i = %d \n",i);
+                        //Pnew=(int)malloc(channel_count*sizeof(int));
+                        //Xnew=(int)malloc(channel_count*sizeof(int));
+                        //N=(int)malloc(channel_count*sizeof(int));
+
+                        //if(K!=P[i] && P[i]!=-1){
+                        //if(is_neighbour(K,i)==0)
+                        int Pnew[5],Xnew[5],Rnew[5];
+               // printf("\n----------------------------Elements in P : ");
+               // print(P);
+                initialize_array(Rnew);
+                initialize_array(Pnew);
+                initialize_array(Xnew);
+                //printf("\n----------------------------Elements in P : ");
+                //print(P);
+                                 find_neighbor_set(i,N);
+
+              //  if(sizeofR(P) != 0)
+              //  {
+                                subtract_element(P,i);
+                                printf("\n\t : After Subtraction of %d from P , size of P is: %d",i,sizeofR(P));
+                printf("Elements in P: ");
+                print(P);
+                                //going according to the algorithm... adding Rnew also
+                                union_element(R,Rnew,i);
+
+                                printf("\n\t : After Union of R , size of R is: %d \n Elements in Rnew: ",sizeofR(Rnew));
+                print(Rnew);
+                printf("\n\n Neighbor Set of: %d \n ",i);
+                print(N);
+                                intersection_elements(P,N,Pnew);
+                                printf("Pnew: ");
+                                print(Pnew);
+                intersection_elements(X,N,Xnew);
+                                printf("Xnew: ");
+                                print(Xnew);
+                                //copy_array(X)
+                                printf("\n recursion: Size of: Rnew: %d ; Pnew: %d ; Xnew: %d ; N[%d]:%d",sizeofR(Rnew),sizeofR(Pnew),sizeofR(Xnew),i,sizeofR(N));
+                                FindConsistencyClique(Rnew, Pnew, Xnew,i);
+                                union_element(X,X,i);
+                                printf("\n\t : After UnionofX , size of X is: %d \n After Union of X : ",sizeofR(X));
+                print(X);
+                //current++;
+                //initialize_array(R);
+             //   }
+                }
+                //return;
+        }
+        printf("\n returning :( ");
+        printf("\nAfter The Union -------------------------------------------------Current = %d i = %d\n",current,i);
+//      return;
+}
+                    
+
+
+void findclique()
+{
+	int R[5] = {0};
+	int P[5] = {1,1,1,1,1};
+   	int X[5] ={0};
+	int i,j;
+	clbcnt = clcnt = malcnt = 0;
+	printf("\n\t\tENtering CLIQUE ::CHannel Count is :  %d",channel_count);
+ printf("(%d,%d)\t", cmn_graph_ws_get_consistent(common,0,0), cmn_graph_ws_get_inconsistent(common,0,0));
+    	for(i = 0;i < channel_count;i ++)
+		for(j = 0;j < channel_count;j ++)
+			graph[i][j] = 0;
+
+       //initializing all the variables
+        clcnt = 0;
+        clbcnt = 0;
+        malcnt = 0;
+        for(i=0;i<channel_count;i++){
+                for(j=0;j<channel_count;j++){
+                        CL[i][j]= 0;
+                        cl_b[i][j]= 0;
+                }
+		N[i] = 0;
+	}
+
+
+    //converting shared memory graphs to adjacency matrix
+    //Web Servers....common->graph_ws[][]
+    	printf("\n---------------------------------Current WebServer Graph-------------------------------------\n");
+	printf("(%d,%d)\t", cmn_graph_ws_get_consistent(common,0,1), cmn_graph_ws_get_inconsistent(common,0,1));
+    	for(i = 0;i<channel_count;i++){
+		for(j=0;j<channel_count;j++){
+	    		printf("(%d,%d)\t", cmn_graph_ws_get_consistent(common,i,j), cmn_graph_ws_get_inconsistent(common,i,j));
+			if(i!=j){
+				int c = cmn_graph_ws_get_consistent(common,i,j);
+				int ic = cmn_graph_ws_get_inconsistent(common,i,j);
+				LOGO("\nc = %d, ic = %d\n",c,ic);	
+		
+			if( c != 0 )	
+			{	graph[i][j] = (c/(c+ic));}
+			else
+			{ graph[i][j] = 0; }
+//graph[i][j] =  cmn_graph_ws_get_consistent(common,i,j) / ( cmn_graph_ws_get_consistent(common,i,j) +  cmn_graph_ws_get_inconsistent(common,i,j));
+			}
+			else
+				graph[i][j] = 0;
+		}
+		printf("\n");
+	}
+
+	printf("\n------------------------------Adjacency Graph for Web Servers is-------------------------------------\n");
+	for(i = 0;i < channel_count;i++)
+		for(j = 0;j<channel_count;j++)
+			printf("%d \t",graph[i][j]);
+
+
+	FindConsistencyClique(R,P,X,-1);
+    	initialize_array(malicious);
+    	findMalicious();
+    	printf("\n\t\t-----------------Malicious Array for WebServers:--------------------------- \n");
+                for(i=0;i<channel_count;i++)
+                {
+                //if(malicious[i]!=-1)
+                printf("\t %d;",malicious[i]);
+
+        }
+
+	
+	//initializing all the variables
+	clcnt = 0;
+	clbcnt = 0;
+	malcnt = 0;
+	for(i=0;i<channel_count;i++){
+
+		for(j=0;j<channel_count;j++){
+			CL[i][j]= 0;
+			cl_b[i][j]=0;
+		}
+		N[i] = 0;
+	}
+
+	initialize_array(R);
+	initialize_array(X);
+	for(i=0;i<channel_count;i++)
+		P[i] = 1;
+
+
+        for(i = 0;i < channel_count;i ++)
+                for(j = 0;j < channel_count;j ++)
+                        graph[i][j] = 0;
+    //converting shared memory graphs to adjacency matrix
+
+    //Application Servers....common->graph_as[][]
+        printf("\n---------------------------------Current AppServer Graph-------------------------------------\n");
+        for(i = 0;i<channel_count;i++){
+                for(j=0;j<channel_count;j++){
+                        printf("(%d,%d)\t", cmn_graph_as_get_consistent(common,i,j), cmn_graph_as_get_inconsistent(common,i,j));
+                        if(i!=j){
+			
+			          int c = cmn_graph_as_get_consistent(common,i,j);
+                                int ic = cmn_graph_as_get_inconsistent(common,i,j);
+                                LOGO("\nc = %d, ic = %d\n",c,ic);
+
+                        if( c != 0 )
+                        {       graph[i][j] = (c/(c+ic));}
+                        else
+                        { graph[i][j] = 0; }
+
+                        }
+                        else
+                                graph[i][j] = 0;
+                }
+                printf("\n");
+        }
+
+        printf("\n------------------------------Adjacency Graph for Application Servers is-------------------------------------\n");
+        for(i = 0;i < channel_count;i++)
+                for(j = 0;j<channel_count;j++)
+                        printf("%d \t",graph[i][j]);
+
+
+        FindConsistencyClique(R,P,X,-1);
+        initialize_array(malicious);
+        findMalicious();
+        printf("\n\t\t----------------Malicious Array for ApplicationServers:------------------------- \n");
+                for(i=0;i<channel_count;i++)
+                {
+                //if(malicious[i]!=-1)
+                printf("\t %d;",malicious[i]);
+
+        }
+
+
+
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*-----------------APIs for Finding Clique at Current State-------------------------------*/
 
 int get_server_index(char *ipaddr)
 {
@@ -641,7 +1157,7 @@ int forward(int fromfd, int tofd, int groupindex, int channelindex)
   if (packetdump) {
     printf("\nBuffer Size: %d\n", (int) rc);
     printf("\nThe Packet data in Forward:\n---------------------------------------------------------------------------\n");
-    print_packet(buffer, rc);
+   // print_packet(buffer, rc);
   }
 
   if (rc <= 0) {
@@ -664,8 +1180,33 @@ int forward(int fromfd, int tofd, int groupindex, int channelindex)
             }
             memcpy(entry->http_request, (char *)buffer, rc);
             entry->size = rc;
-            //entry->is_replicated = probabilistic
-            entry->is_replicated = 1;
+            entry->is_replicated = do_replication();
+            //entry->is_replicated = 1;
+	    if(entry->is_replicated) 
+	    {
+		    if(grp_nchannels(common,groupindex)==1) // CloudAttest if the number of server channels is 1, give error that we cannot replicate :(
+		    {
+			    perror("Cannot Replicate, servers = 1\n");
+			    entry->is_replicated = 0;
+		    }
+		    else{
+			    // while((repl_index=get_replication_index(grp_nchannels(common,groupindex)))== (grp_current(common, groupindex)) );
+				LOGO("\n------------------------------------grp_nchannels(common,groupindex) = %d\n",grp_nchannels(common,groupindex));
+			    while((entry->repl_index=get_replication_index(grp_nchannels(common,groupindex)))== current_original_channel);
+				/*if a request is already pending for this pair of servers, skip this request!*/
+			    if(cmn_aplcn_svr_map(common,current_original_channel, entry->repl_index) > 0)
+				entry->is_replicated = 0;
+			    else 
+			    {
+				    cmn_aplcn_svr_map(common,current_original_channel, entry->repl_index) = 1;
+				    cmn_aplcn_svr_map(common, entry->repl_index, current_original_channel) = 1;
+				    LOGO("------->>>>>AS server map [%d][%d]\n", current_original_channel, entry->repl_index);
+				    LOGO("------->>>>> The 2 AS servers are: %s and %s \n", cmn_topology(common, current_original_channel).as, 
+						    cmn_topology(common, entry->repl_index).as);
+				    printf("\n\nBACKWARD Flow to Client ; GOT Index: %d    Rep_Index: %d\n",current_original_channel,entry->repl_index);
+			    }
+		    }
+	    }
             wcache_add(&cache, entry);
 
     }
@@ -716,7 +1257,7 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
     printf("-< %d\n", (int) rc);
 	printf("The RESPONSE Received:\n");
 	printf("-------------------------------\n");
-   // print_packet(buffer, rc);
+//	print_packet(buffer, rc);
   }
 
   if (rc <= 0) {
@@ -727,11 +1268,8 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
                 orig_hash = 0;
                 if(is_request_replicated(&cache)){
                      repl_request = wcache_remove_first(&cache);  //Cache is the request queue.
+		     repl_index = repl_request->repl_index;
                     // dequeue(&cache);
-                    if(repl_request)
-                    {
-                           // printf("The Buffered Request:\n---------------------------\n%s", repl_request->http_request);
-                    }
                      //Parse to get content length
                      content_length = parse_content_length((char *)buffer);
                      fprintf(stdout,"\n\nCONTENT-LENGTH of the Packet: %d\n\n",content_length);
@@ -752,10 +1290,24 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
 		  
                      RESPONSE_REPL = 1; // set flag
 		     content_length -= tmp;
+		     if(html_end_required)
+		     {
+			     if(strstr(buffer, "</html>")){
+				     content_length = 0;
+				    html_end_required = 0;
+				     fprintf(stdout, "Checked with HTML");
+
+			     }
+
+		     }
 		   // fprintf(stdout,"\n\nCONTENT-LENGTH: %d\n\n",content_length);
 
                 }
-
+		else 
+		{
+			wcache_remove_first(&cache); 
+			repl_request = NULL;
+		}
         }
         else{
 		int striphdr = 0;
@@ -768,6 +1320,7 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
                 {
                         if(strstr(buffer, "</html>")){
                                 content_length = 0;
+				html_end_required = 0;
 				 fprintf(stdout, "Checked with HTML");
 
 			}
@@ -784,7 +1337,7 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
                 	printf("rc = %d; strp = %d\n", rc, striphdr);
 		}
 */
-		orig_hash = crc32(buffer, striphdr, orig_hash);
+		orig_hash = crc32(buffer, rc, orig_hash);
 /*		if(content_length == 0){
 			fprintf(stdout,"\n\nCONTENT LENGTH IS NOW 0\n\n");
 		   if(do_replication()==1)
@@ -815,24 +1368,15 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
 
 
 
+		printf("\n\n\n******------->>>>>>Content length = %d\n\n", content_length);
 	        if(content_length == 0){
                      //   fprintf(stdout,"\n\nCONTENT LENGTH IS NOW 0\n\n");
-                   if(do_replication()==1)
+                   if(repl_request->is_replicated)
                    {
-                      if(grp_nchannels(common,groupindex)==1) // CloudAttest if the number of server channels is 1, give error that we cannot replicate :(
-                      {
-                        perror("Cannot Replicate, servers = 1\n");
-                      }
-                      else{
                        // while((repl_index=get_replication_index(grp_nchannels(common,groupindex)))== (grp_current(common, groupindex)) );
-			while((repl_index=get_replication_index(grp_nchannels(common,groupindex)))== current_original_channel);
 			
-			cmn_aplcn_svr_map(common,current_original_channel, repl_index) = 1;
-			cmn_aplcn_svr_map(common, repl_index, current_original_channel) = 1;
-			LOGO("server map entry [%d][%d]\n", current_original_channel, repl_index);
-                        printf("\n\nBACKWARD Flow to Client ; GOT Index: %d    Rep_Index: %d\n",current_original_channel,repl_index);
 			current_original_channel=-1;
-
+				LOGO("\nReplicated Index: -------- %d\n",repl_index);
                         if( (repl_socket=get_replicated_socket(groupindex,repl_index)) < 0 ){
                                 fprintf(stdout,"\n\n Error while getting the repl_socket \n\n");
                         	exit(-1);
@@ -843,7 +1387,8 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
                         }
                         if(repl_request)
                         {
-                                int retw = 0, hdrflg = 0, partial = 0;
+                                int retw = 0, hdrflg = 0, partial = 0, tempsum = 0;
+				printf("\n**********-------->>>>>>>REPLICATED REQ SENDING\n %s\n", repl_request->http_request);
                                 retw = write(repl_socket, repl_request->http_request,
                                                 repl_request->size);
                                 if(retw < 0)
@@ -857,13 +1402,15 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
                                 repl_hash = 0;
                                 if(repl_fd < 0)
                                         fprintf(stderr, "error opening replicated file\n");
+				memset(repl_buffer, 0, sizeof(MAXTXSIZE));
                                 while((retw = read(repl_socket, repl_buffer,
                                                         MAXTXSIZE)) > 0)
                                 {
 					if(!hdrflg)
 					{
+						printf("\nREPL RESPONSE****************************************\n %s\n", repl_buffer);
 						needle = parse_response_packet(repl_buffer);
-						//printf("NEEDLE : %s\n", needle);
+						printf("NEEDLE : %s\n", needle);
 						if(needle){
 							hdrflg = 1;
 							partial = 1;
@@ -871,23 +1418,26 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
 					}
 					if(partial)
 					{
-						//printf("numbytes = %d\n", (needle - repl_buffer));
+						printf("Content length = %d\n", retw - (needle - repl_buffer));
+						tempsum = retw - (needle - repl_buffer);
 						write(repl_fd, needle, retw -(needle - repl_buffer));
                                                 repl_hash = crc32(needle,
-                                                                retw-(needle -
-                                                                        repl_buffer),
+                                                                (retw-(needle -
+                                                                        repl_buffer)),
                                                                 repl_hash);
 						partial = 0;
 					}
 					else
                                         {
+						tempsum+=retw;
 						write(repl_fd, repl_buffer, retw);
                                                 repl_hash = crc32(repl_buffer,
                                                                 retw, repl_hash);
                                         }
+					memset(repl_buffer, 0, sizeof(MAXTXSIZE));
                                 }
                                 close(repl_fd);
-
+				printf("\n***********TEMPSUM = %d\n", tempsum);
                                 printf("orig hash = %u\n repl hash = %u\n",
                                                 orig_hash, repl_hash);
                                 if(orig_hash == repl_hash)
@@ -906,9 +1456,17 @@ int backward(int fromfd, int tofd, int groupindex, int channelindex)
                                                         channelindex, repl_index, cmn_graph_ws_get_consistent(common,channelindex,repl_index),
 							cmn_graph_ws_get_inconsistent(common,channelindex,repl_index));
                                 }
+				/*reset applcn server map */	
+				if(cmn_aplcn_svr_map(common, channelindex, repl_index) <= 1)
+				{
+					printf("*************SHOULD PRINT LAST***RESETTING APP SERVER MAP\n");
+					cmn_aplcn_svr_hash(common, channelindex) = 0;
+					cmn_aplcn_svr_hash(common, repl_index) = 0;
+					cmn_aplcn_svr_map(common, channelindex, repl_index) = 0;
+					cmn_aplcn_svr_map(common,repl_index, channelindex) = 0;
+				}
                         }
                          // stream(newsockfd, groupindex, index, (char *) &cli_addr, clilen);
-                      }
 
                   }
                 
@@ -1098,6 +1656,7 @@ int get_replicated_socket(int groupindex, int index) {
 	printf("----------------------------------------------------------------------\n");
  b_unlock();
 
+	LOGO("\nsockfd : -------- %d\n",sockfd);
   if (connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
 	// Error handler
  	fprintf(stdout,"\n\nERROR connecting to the New SOCKET\n\n");
@@ -2019,7 +2578,7 @@ int do_replication()
 
 }
 
-//CloudAttest
+//CloudAttese
 int get_replication_index(int num_grp_channels)
 {
 	return ((int)rand())%num_grp_channels;
@@ -2027,7 +2586,6 @@ int get_replication_index(int num_grp_channels)
 
 
 //CloudAttest
-
 int server_map_config(void *user_data, char *line)
 {
         char *ip;
@@ -2066,8 +2624,8 @@ int main(int argc, char *argv[])
                   sizeof(struct listener_cfg));
   cfg->listen_port = 8800;
   //index for replication- CloudAttest
-  int pid;
-  int rep_index;
+  int pid,clique_pid;
+  int rep_index,option=0;
 #ifdef BalanceBSD
 #else
   struct rlimit r;
@@ -2284,7 +2842,33 @@ connect_timeout = DEFAULTTIMEOUT;
    * addresses and application server ip addresses */
 
         file_parser("server_config.txt", server_map_config, &ncfg);
-        
+/*	
+	int k=0,l=0;
+	for(l=0; l<5; l++)
+	{
+	for(k=0; k<5; k++)
+	{
+		LOGO(" %d ",cmn_aplcn_svr_map(common,l,k));
+
+	}
+		fprintf(stdout,"\n");
+	}      
+*/	
+ 
+      clique_pid = fork();
+      if(clique_pid == 0)
+	{
+		while(1){
+		printf("\n\t\t FIND CLIQUE? 1/0");
+		scanf("%d",&option);
+		if(option==1)
+			findclique();
+		option = 0;
+		}
+		return 0;	
+	}	
+	printf("IN PARENT\n");
+
       pid = fork();
       if(pid == 0)
 	{
@@ -2476,19 +3060,30 @@ int get_ipaddr(char *ipaddr, unsigned char *buffer)
 int get_replication_status(char *ipaddr, int *other_svr)
 {
         int i = 0;
-	LOGO("ipaddr = %s\n", ipaddr);
+	LOGO("Inside replication status: ipaddr = %s\n", ipaddr);
         int index = get_server_index(ipaddr);
        //int index = -1;
-	LOGO("server index = %d\n", index);    
-        
+	LOGO("Inside replication status: server index = %d\n", index);    
+	
+	int k=0;
+    
+        for(k=0; k<5; k++)
+        {
+                fprintf(stdout," %d ",cmn_aplcn_svr_map(common,index,k));
+
+        }
+        fprintf(stdout,"\n");
+                  
+
 	if(index == -1)
                 return -1;
         while(i < MAXNODES)
         {
+		LOGO("\nInside While :i= %d, (cmn_aplcn_svr_map(common,index,i)= %d\n",i,(cmn_aplcn_svr_map(common,index,i)));
                 if((cmn_aplcn_svr_map(common,index,i)) > 0)
                 {
                         *other_svr = i; 
-                        LOGO("replcn server index = %d\n", (*other_svr));    
+                        LOGO("Inside replication status: replcn server index = %d\n", (*other_svr));    
                         return index;
                 }
                 i++;
@@ -2508,9 +3103,10 @@ int aplcn_svr_response_check(int new_fd)
                 char ipaddr[MAX_IPADDR_LEN];
                 int replication_status = 0;
                 int other_svr;
+		buffer[0] = 0;
                 while((rc = read(new_fd, buffer, MAX_BUFFER)) > 0)
                 {
-                        LOGO("AS CHECKPOINTING DATA: %s\n", buffer);
+                        LOGO("CHECKPOINTING DATA RECEIVED: %s\n", buffer);
                         //first packet 
                         if(firstbuf == 0)
                         {
@@ -2528,6 +3124,8 @@ int aplcn_svr_response_check(int new_fd)
                                 {
                                         hash = crc32(buffer+iplen, rc-iplen, hash);
                                         replication_status = 1;
+					LOGO("----------->>>>>> CHECKPOINT data:replicated server pair = %s, %s\n",
+						cmn_topology(common, index).as, cmn_topology(common, other_svr).as);
                                         LOGO("first packet of AS DATA = %s\n", buffer+iplen);
                                 }
                                 firstbuf = 1;
@@ -2538,27 +3136,37 @@ int aplcn_svr_response_check(int new_fd)
                         {
                                 if(replication_status)
                                 {
-                                        LOGO("%s\n", "next packets of AS DATA")
+                                        	LOGO("----------->>>>>>NEXT CHECKPOINT data:replicated server pair = %s, %s\n",
+						cmn_topology(common, index).as, cmn_topology(common, other_svr).as);
+						LOGO("----------->>>>>next packets of AS DATA = %s\n", buffer);
                                         hash = crc32(buffer, rc, hash);
                                 }
                         
                         }
+			buffer[0] = 0;
 
                 }
                 if(replication_status)
                 {
+			LOGO(" *****-------->>>>>>><<<<<<<>>>>>>> index = %d, other_svr = %d, hash1=%u, hash2=%u\n",
+				index, other_svr, cmn_aplcn_svr_hash(common, index), cmn_aplcn_svr_hash(common, other_svr));
                         if((cmn_aplcn_svr_hash(common, index) == 0) &&
                                         (cmn_aplcn_svr_hash(common, other_svr) == 0))
                         {
                                 //both entries are 0..this is the first hash.
                                 //store and wait for second hash
                                 cmn_aplcn_svr_hash(common, index) = hash;
-                                LOGO("Hash of checkpoint data for first server index %d, value = %u\n", 
-                                                index, hash);
+                                cmn_aplcn_svr_map(common,index,other_svr) = 2;
+                                cmn_aplcn_svr_map(common,other_svr,index) = 2;
+                                LOGO("--------->>>> FIRST CHKPOINT:Hash of checkpoint data for first server index %d,ip=%s, value = %u\n", 
+                                                index,cmn_topology(common, index).as, cmn_aplcn_svr_hash(common, index));
                         }
                         else
                         {
-                                if((other_hash = cmn_aplcn_svr_hash(common, index))
+                               
+				LOGO("\n----------We are in APP Comparison Loop!!!-------------- %d %d\n",hash,other_hash);
+
+					 if((other_hash = cmn_aplcn_svr_hash(common, index))
                                                 == 0)
                                         other_hash = cmn_aplcn_svr_hash(common,
                                                         other_svr);
@@ -2580,6 +3188,7 @@ int aplcn_svr_response_check(int new_fd)
 							cmn_graph_as_get_inconsistent(common,index,other_svr));
                                 }
                                 //reset all entries
+				LOGO("%s", "RESETTING HASH IN APP SERVER *******------------->>>>>>>>>\n");
                                 cmn_aplcn_svr_hash(common, index) = 0;
                                 cmn_aplcn_svr_hash(common, other_svr) = 0;
                                 cmn_aplcn_svr_map(common,index,other_svr) = 0;
